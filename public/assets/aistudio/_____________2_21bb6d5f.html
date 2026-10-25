@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3301 // АСТРОНАВИГАЦИОННЫЙ ТЕРМИНАЛ ГИПЕРПРОСТРАНСТВА</title>
+<style>
+    :root {
+        --bg: #05070b; --panel: #0b1017; --border: #1c2938;
+        --accent: #00ff9d; --gold: #f0b90b; --cyan: #38bdf8;
+        --text: #c2d1e0; --dim: #52657a; --danger: #ff4757;
+        --proton: #ff4757; --neutron: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        background-color: var(--bg); color: var(--text);
+        font-family: 'Courier New', Courier, monospace; line-height: 1.55;
+        padding: 20px; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+        background-image: radial-gradient(circle at 50% 0%, #122238 0%, #05070b 70%),
+            linear-gradient(rgba(28, 41, 56, 0.15) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(28, 41, 56, 0.15) 1px, transparent 1px);
+        background-size: 100% 100%, 30px 30px, 30px 30px;
+    }
+    .difficulty-overlay {
+        position: fixed; inset: 0; background: rgba(2, 4, 8, 0.97);
+        backdrop-filter: blur(14px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;
+        overflow-y: auto;
+    }
+    .difficulty-modal {
+        max-width: 840px; width: 100%; background: linear-gradient(180deg, #0a111a 0%, #05080e 100%);
+        border: 1px solid rgba(240, 185, 11, 0.4);
+        padding: 30px 28px; border-radius: 6px; box-shadow: 0 25px 80px rgba(0,0,0,0.95), 0 0 30px rgba(240, 185, 11, 0.08);
+        text-align: center; position: relative;
+    }
+    .difficulty-modal::before, .difficulty-modal::after {
+        content: ''; position: absolute; width: 14px; height: 14px; pointer-events: none;
+    }
+    .difficulty-modal::before {
+        top: -2px; left: -2px; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold);
+    }
+    .difficulty-modal::after {
+        bottom: -2px; right: -2px; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold);
+    }
+    .diff-close-btn {
+        position: absolute; top: 12px; right: 16px; background: transparent; border: 1px solid var(--border);
+        color: var(--dim); font-family: inherit; font-size: 0.72rem; padding: 3px 8px; cursor: pointer; border-radius: 2px;
+        transition: all 0.2s;
+    }
+    .diff-close-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+    .diff-sys-tag {
+        font-size: 0.72rem; letter-spacing: 3px; color: var(--gold); margin-bottom: 6px; text-transform: uppercase;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .diff-sys-tag .blip-dot {
+        width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent);
+        animation: pulseBlip 1.5s infinite;
+    }
+    @keyframes pulseBlip { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } }
+
+    .diff-title {
+        font-size: 1.35rem; letter-spacing: 2.5px; color: #fff; margin-bottom: 12px; font-weight: 700; text-transform: uppercase;
+    }
+    .diff-provocation-banner {
+        background: rgba(255, 71, 87, 0.08); border: 1px solid rgba(255, 71, 87, 0.35);
+        border-left: 4px solid var(--danger); padding: 12px 16px; border-radius: 3px; margin: 0 auto 24px auto;
+        text-align: left; max-width: 800px;
+    }
+    .diff-banner-header {
+        display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 0.8rem;
+        color: var(--danger); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;
+    }
+    .diff-banner-text {
+        font-size: 0.79rem; color: #d5e0ea; line-height: 1.45;
+    }
+    .diff-banner-text strong {
+        color: var(--gold);
+    }
+
+    .diff-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; }
+    
+    .diff-card {
+        background: #06090e; border: 1px solid var(--border); padding: 22px 20px;
+        border-radius: 5px; cursor: pointer; position: relative; display: flex; flex-direction: column;
+        justify-content: space-between; transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+        overflow: hidden;
+    }
+    .diff-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        background: var(--dim); transition: background 0.3s;
+    }
+    .diff-card.normal-card::before { background: var(--accent); }
+    .diff-card.hard-card::before { background: var(--danger); }
+
+    .diff-card:hover {
+        transform: translateY(-4px); box-shadow: 0 12px 35px rgba(0,0,0,0.8);
+    }
+    .diff-card.normal-card:hover {
+        border-color: var(--accent); box-shadow: 0 12px 35px rgba(0, 255, 157, 0.15);
+    }
+    .diff-card.hard-card:hover {
+        border-color: var(--danger); box-shadow: 0 12px 35px rgba(255, 71, 87, 0.25);
+        animation: subtleJitter 0.25s ease infinite alternate;
+    }
+    @keyframes subtleJitter {
+        0% { transform: translateY(-4px) rotate(0deg); }
+        50% { transform: translateY(-5px) rotate(0.2deg); }
+        100% { transform: translateY(-3px) rotate(-0.2deg); }
+    }
+
+    .diff-card-badge {
+        font-size: 0.68rem; font-weight: bold; letter-spacing: 1px; padding: 3px 8px; border-radius: 2px;
+        display: inline-block; margin-bottom: 12px; align-self: flex-start; text-transform: uppercase;
+    }
+    .badge-normal {
+        background: rgba(0, 255, 157, 0.1); border: 1px solid var(--accent); color: var(--accent);
+    }
+    .badge-hard {
+        background: rgba(255, 71, 87, 0.12); border: 1px solid var(--danger); color: var(--danger);
+        animation: pulseDanger 2s infinite;
+    }
+    @keyframes pulseDanger {
+        0%, 100% { box-shadow: 0 0 5px rgba(255,71,87,0.2); }
+        50% { box-shadow: 0 0 15px rgba(255,71,87,0.5); }
+    }
+
+    .diff-card-header h3 {
+        font-size: 1.22rem; letter-spacing: 2px; margin-bottom: 4px; text-transform: uppercase;
+    }
+    .diff-card-subtitle {
+        font-size: 0.77rem; color: var(--dim); margin-bottom: 16px; font-style: italic; min-height: 34px; line-height: 1.35;
+    }
+
+    .diff-specs {
+        list-style: none; margin-bottom: 16px; font-size: 0.78rem; display: flex; flex-direction: column; gap: 8px;
+    }
+    .diff-spec-item {
+        display: flex; gap: 8px; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 5px;
+    }
+    .diff-spec-icon { font-size: 0.85rem; width: 18px; text-align: center; }
+    .diff-spec-label { color: var(--dim); width: 92px; flex-shrink: 0; font-size: 0.74rem; text-transform: uppercase; }
+    .diff-spec-val { color: var(--text); flex: 1; }
+
+    .diff-verdict-box {
+        background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.06); padding: 10px 12px;
+        border-radius: 3px; font-size: 0.75rem; margin-bottom: 18px; line-height: 1.4;
+    }
+    .diff-verdict-box.hard-verdict {
+        border-color: rgba(255, 71, 87, 0.25); color: #ff9ca6; min-height: 48px;
+    }
+
+    .diff-action-btn {
+        width: 100%; padding: 11px 12px; font-family: inherit; font-size: 0.82rem; font-weight: bold;
+        text-transform: uppercase; letter-spacing: 1.5px; border-radius: 3px; cursor: pointer;
+        transition: all 0.2s; text-align: center;
+    }
+    .btn-select-normal {
+        background: rgba(0, 255, 157, 0.08); border: 1px solid var(--accent); color: var(--accent);
+    }
+    .btn-select-normal:hover {
+        background: var(--accent); color: #000; box-shadow: 0 0 20px rgba(0, 255, 157, 0.5);
+    }
+    .btn-select-hard {
+        background: rgba(255, 71, 87, 0.08); border: 1px solid var(--danger); color: var(--danger);
+    }
+    .btn-select-hard:hover {
+        background: var(--danger); color: #fff; box-shadow: 0 0 20px rgba(255, 71, 87, 0.6);
+    }
+
+    .hard-warning-overlay {
+        position: absolute; inset: 0; background: rgba(5, 7, 11, 0.96);
+        backdrop-filter: blur(8px); display: none; flex-direction: column; align-items: center; justify-content: center;
+        padding: 24px; border-radius: 6px; z-index: 10; text-align: center;
+        animation: fadeInWarn 0.25s ease;
+    }
+    @keyframes fadeInWarn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+    .hard-warning-box {
+        max-width: 530px; width: 100%; border: 1px solid var(--danger); padding: 25px 22px; background: #080d14;
+        box-shadow: 0 0 45px rgba(255, 71, 87, 0.35); border-radius: 4px; text-align: center;
+    }
+    .hard-warn-title {
+        color: var(--danger); font-size: 1.05rem; font-weight: bold; letter-spacing: 2px; margin-bottom: 12px;
+    }
+    .hard-warn-text {
+        font-size: 0.82rem; line-height: 1.55; color: #ccd6e0; margin-bottom: 18px; text-align: left;
+    }
+    .hard-warn-btns {
+        display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .container { max-width: 960px; width: 100%; margin: 0 auto 50px auto; }
+
+    header.avionics-hud {
+        background: linear-gradient(180deg, rgba(14, 21, 32, 0.95) 0%, rgba(9, 13, 20, 0.95) 100%);
+        border: 1px solid var(--border); border-top: 2px solid var(--gold);
+        border-radius: 4px; margin-bottom: 28px; box-shadow: 0 15px 40px rgba(0,0,0,0.75); overflow: hidden;
+    }
+    .hud-switch-btn {
+        background: rgba(240, 185, 11, 0.1); border: 1px solid var(--gold); color: var(--gold);
+        font-family: inherit; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; border-radius: 2px;
+    }
+    .hud-switch-btn:hover { background: var(--gold); color: #000; }
+    .hud-main { display: grid; grid-template-columns: 240px 1fr 240px; align-items: center; padding: 16px 20px; gap: 15px; }
+    .hud-wing-box { font-size: 0.74rem; border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.35); padding: 12px; border-radius: 3px; }
+    .hud-telemetry-row { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dotted rgba(82,101,122,0.3); padding-bottom: 3px; }
+    .hud-telemetry-row:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+    .hud-center { text-align: center; display: flex; flex-direction: column; align-items: center; }
+    canvas#hudTesseract { width: 125px; height: 125px; margin-bottom: 4px; }
+    h1 { font-size: 1.2rem; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; text-shadow: 0 0 12px rgba(240,185,11,0.35); margin-bottom: 3px; }
+    .subtitle { font-size: 0.74rem; color: var(--cyan); letter-spacing: 1.5px; }
+    .hud-nodes-tracker { display: flex; flex-direction: column; gap: 5px; }
+    .hud-node-led { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; padding: 4px 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 2px; }
+    .led-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+    .hud-node-led.online .led-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .hud-node-led.online { border-color: rgba(0, 255, 157, 0.4); color: var(--accent); }
+
+    .node-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 24px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+    .node-panel.locked { opacity: 0.28; pointer-events: none; filter: blur(3px); user-select: none; }
+    .node-panel.solved { border-color: var(--gold); }
+    .node-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 10px; margin-bottom: 18px; }
+    .node-title { color: var(--accent); font-weight: bold; letter-spacing: 1.5px; font-size: 1rem; }
+    .status-badge { font-size: 0.73rem; padding: 3px 8px; border: 1px solid var(--dim); color: var(--dim); text-transform: uppercase; }
+    .node-panel.solved .status-badge { border-color: var(--gold); color: var(--gold); }
+    .riddle-box { background: rgba(0,0,0,0.4); border-left: 3px solid var(--gold); padding: 14px; margin-bottom: 18px; font-size: 0.89rem; }
+    .riddle-box p { margin-bottom: 8px; }
+    .riddle-box p:last-child { margin-bottom: 0; }
+
+    .artifact-box { background: #05070a; border: 1px solid var(--border); padding: 14px; margin-bottom: 18px; text-align: center; }
+    .artifact-box img { max-width: 100%; height: auto; border: 1px solid #1c2430; display: block; margin: 0 auto 8px auto; }
+    .artifact-caption { font-size: 0.76rem; color: var(--dim); display: flex; justify-content: space-between; max-width: 480px; margin: 0 auto; }
+    .artifact-link { color: var(--gold); text-decoration: none; border-bottom: 1px dotted var(--gold); }
+
+    canvas#waveCanvas { width: 100%; height: 115px; background: #040507; border: 1px solid var(--border); margin-bottom: 18px; display: block; }
+    .slider-group { margin-bottom: 14px; }
+    .slider-label { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px; }
+    .slider-val { color: var(--accent); font-weight: bold; }
+    input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; background: #1a2432; outline: none; border-radius: 3px; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--gold); cursor: pointer; border-radius: 50%; box-shadow: 0 0 8px var(--gold); }
+
+    .cipher-screen { background: #05070a; border: 1px solid #1c2530; padding: 14px; font-size: 0.92rem; color: var(--accent); letter-spacing: 1px; margin-bottom: 18px; min-height: 90px; }
+    .altar-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 20px 0 10px 0; }
+    .slot { background: rgba(255,255,255,0.02); border: 2px dashed var(--dim); border-radius: 4px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+    .slot-title { font-size: 0.66rem; color: var(--dim); position: absolute; top: 5px; text-align: center; }
+    .cores-pool { display: grid; grid-template-columns: repeat(auto-fit, minmax(75px, 1fr)); gap: 10px; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); }
+    .core-item { background: #131b26; border: 1px solid var(--gold); color: var(--gold); padding: 10px 6px; text-align: center; font-weight: bold; cursor: grab; border-radius: 3px; user-select: none; }
+    .core-item.selected { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 10px rgba(0,255,157,0.4); }
+
+    /* Узел 3: Крупный 3D/4D экран ровера (520px) */
+    .rover-workspace { display: grid; grid-template-columns: 520px 1fr; gap: 20px; align-items: start; }
+    .rover-map-wrap { background: #05070a; border: 1px solid var(--border); padding: 12px; text-align: center; }
+    canvas#roverCanvas {
+        width: 100%; max-width: 494px; height: 420px;
+        background: radial-gradient(circle at 50% 50%, #0d1a2d 0%, #04070b 85%);
+        border: 1px solid #1b2838; display: block; margin: 0 auto 10px auto; cursor: grab;
+    }
+    canvas#roverCanvas:active { cursor: grabbing; }
+    .rover-telemetry { display: flex; justify-content: space-between; font-size: 0.78rem; padding: 6px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+    .cmd-palette { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-bottom: 14px; }
+    .cmd-btn { background: #121a24; border: 1px solid var(--gold); color: var(--gold); padding: 8px 9px; font-family: inherit; font-size: 0.76rem; font-weight: bold; cursor: pointer; border-radius: 3px; text-align: left; }
+    .cmd-btn:hover { background: rgba(240, 185, 11, 0.15); }
+    .cmd-btn.loop-cmd { border-color: var(--accent); color: var(--accent); }
+    .cmd-btn.hyper-cmd { border-color: var(--cyan); color: var(--cyan); background: rgba(56, 189, 248, 0.08); }
+    .prog-slots { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .prog-slot { background: rgba(0,0,0,0.4); border: 1px dashed var(--dim); padding: 7px 10px; border-radius: 3px; display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; cursor: pointer; min-height: 34px; }
+    .prog-slot.filled { border-style: solid; border-color: var(--gold); background: #101722; color: var(--gold); font-weight: bold; }
+    .prog-slot.filled.loop-filled { border-color: var(--accent); color: var(--accent); }
+    .prog-slot.filled.hyper-filled { border-color: var(--cyan); color: var(--cyan); }
+    .rover-controls { display: flex; gap: 10px; }
+
+    /* Узел 4: 3D Атом */
+    .nucleo-workspace { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+    .atom-viewport { background: #040609; border: 1px solid var(--border); padding: 10px; text-align: center; }
+    canvas#atom3dCanvas { background: radial-gradient(circle at 50% 50%, #0d1624 0%, #040609 75%); border: 1px solid #162232; display: block; margin: 0 auto 8px auto; cursor: grab; }
+    .phase-steps { display: flex; gap: 8px; margin-bottom: 14px; }
+    .phase-pill { flex: 1; text-align: center; padding: 6px; font-size: 0.74rem; border: 1px solid var(--border); color: var(--dim); background: #06090e; }
+    .phase-pill.active { border-color: var(--gold); color: var(--gold); font-weight: bold; background: rgba(240, 185, 11, 0.1); }
+    .phase-pill.done { border-color: var(--accent); color: var(--accent); }
+    .particle-control { background: rgba(0,0,0,0.35); border: 1px solid var(--border); padding: 10px; margin-bottom: 10px; border-radius: 3px; }
+    .particle-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.86rem; font-weight: bold; }
+    .btn-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .p-btn { background: #121a26; border: 1px solid var(--border); color: var(--text); padding: 6px 0; font-family: inherit; font-weight: bold; cursor: pointer; }
+    .p-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* Узел 5: Звезды */
+    .star-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 18px 0; }
+    .star-card { background: #090d14; border: 1px solid var(--border); border-radius: 4px; padding: 16px 10px 12px 10px; text-align: center; cursor: pointer; user-select: none; transition: all 0.2s; }
+    .star-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+    .star-card.active-swap { border-color: var(--accent); box-shadow: 0 0 14px rgba(0, 255, 157, 0.35); transform: scale(1.03); }
+    .star-dot { width: 32px; height: 32px; border-radius: 50%; margin: 0 auto 10px auto; }
+    .star-letter { font-size: 1.5rem; font-weight: bold; color: var(--gold); margin-bottom: 6px; }
+    .star-info { font-size: 0.74rem; color: var(--text); padding-top: 8px; border-top: 1px dashed var(--border); line-height: 1.35; }
+
+    .formula-box { background: #05070a; border: 1px solid var(--border); padding: 14px; margin: 18px 0; font-size: 0.88rem; }
+    .key-input-group { display: flex; gap: 10px; margin-top: 16px; }
+    input[type="text"] { flex: 1; background: #05070a; border: 1px solid var(--gold); color: var(--accent); font-family: inherit; font-size: 1.05rem; padding: 10px 14px; letter-spacing: 2px; text-transform: uppercase; outline: none; }
+    button.btn { background: transparent; border: 1px solid var(--gold); color: var(--gold); font-family: inherit; padding: 9px 18px; font-size: 0.86rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+    button.btn:hover { background: var(--gold); color: #000; font-weight: bold; }
+    button.btn-accent { border-color: var(--accent); color: var(--accent); }
+    button.btn-accent:hover { background: var(--accent); color: #000; }
+    .final-modal { display: none; margin-top: 20px; padding: 20px; border: 2px solid var(--accent); background: rgba(0, 255, 157, 0.05); text-align: center; }
+    .final-key-display { font-size: 1.7rem; color: var(--gold); letter-spacing: 4px; margin: 12px 0; padding: 8px 18px; background: #000; border: 1px dashed var(--gold); display: inline-block; }
+    .hint-note { font-size: 0.75rem; color: var(--dim); margin-top: 6px; }
+
+    @media (max-width: 860px) {
+        .diff-cards, .hud-main, .rover-workspace, .nucleo-workspace { grid-template-columns: 1fr; }
+        .altar-slots { grid-template-columns: repeat(2, 1fr); }
+        .cores-pool { grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)); }
+        .difficulty-modal { padding: 22px 16px; }
+        .diff-title { font-size: 1.15rem; }
+    }
+</style>
+</head>
+<body>
+
+<!-- СТИЛЬНЫЙ И ПРОВОКАЦИОННЫЙ СЕЛЕКТОР СЛОЖНОСТИ // КАЛИБРОВКА ЭГО -->
+<div class="difficulty-overlay" id="diffOverlay">
+    <div class="difficulty-modal">
+        <button class="diff-close-btn" onclick="document.getElementById('diffOverlay').style.display='none'" title="Закрыть меню">[ ✕ ЗАКРЫТЬ ]</button>
+
+        <div class="diff-sys-tag">
+            <span class="blip-dot"></span>
+            <span>SYS.INIT // ПРОТОКОЛ 3301 // КАЛИБРОВКА ЭГО</span>
+        </div>
+
+        <h2 class="diff-title">ВЫБЕРИТЕ ПРОТОКОЛ ДОСТУПА</h2>
+
+        <!-- ПРОВОКАЦИОННЫЙ ДИСКЛЕЙМЕР: ОДИНАКОВЫЙ ИТОГ -->
+        <div class="diff-provocation-banner">
+            <div class="diff-banner-header">
+                <span>⚠</span>
+                <span>АКСИОМА СИСТЕМЫ: ФИНАЛЬНЫЙ РЕЗУЛЬТАТ НА 100% ИДЕНТИЧЕН</span>
+            </div>
+            <div class="diff-banner-text">
+                Оба протокола генерируют <strong>один и тот же ключ допуска</strong> к следующему уровню комплекса. В сложном режиме <strong>НЕТ</strong> секретных наград, скрытого контента или похвалы. Единственная разница: сложный режим ты <strong>гарантированно не потянешь</strong>, сломаешься на неевклидовой топологии и вернёшься сюда сдаваться.
+            </div>
+        </div>
+
+        <!-- КАРТОЧКИ ВЫБОРА -->
+        <div class="diff-cards">
+            <!-- КАРТОЧКА: ЛЕГКИЙ / РАЗУМНЫЙ -->
+            <div class="diff-card normal-card" onclick="handleNormalClick()" onmouseenter="playTerminalSound('hover-normal')">
+                <div>
+                    <span class="diff-card-badge badge-normal">● 98.2% УСПЕХА // РЕКОМЕНДОВАНО ЗДРАВЫМ СМЫСЛОМ</span>
+                    <div class="diff-card-header">
+                        <h3 style="color:var(--accent);">ЛЕГКИЙ РЕЖИМ</h3>
+                        <div class="diff-card-subtitle">«Я ценю своё время, рассудок и результат»</div>
+                    </div>
+
+                    <ul class="diff-specs">
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">🔑</span>
+                            <span class="diff-spec-label">Результат:</span>
+                            <span class="diff-spec-val" style="color:var(--accent); font-weight:bold;">100% допуск к след. этапу (полный ключ)</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">📐</span>
+                            <span class="diff-spec-label">Пространство:</span>
+                            <span class="diff-spec-val">Классический 3D-куб (3×3×4)</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">⚡</span>
+                            <span class="diff-spec-label">Расчёты:</span>
+                            <span class="diff-spec-val">Штатная бортовая сеть B737 NG</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">⏱</span>
+                            <span class="diff-spec-label">Время:</span>
+                            <span class="diff-spec-val">15–20 минут спокойного решения</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">🧠</span>
+                            <span class="diff-spec-label">Психика:</span>
+                            <span class="diff-spec-val" style="color:var(--accent);">Полный порядок, ноль стресса</span>
+                        </li>
+                    </ul>
+
+                    <div class="diff-verdict-box">
+                        <span style="color:var(--accent); font-weight:bold;">ВЕРДИКТ:</span> Прагматичный выбор взрослого человека. Забрать рабочий ключ без бессмысленного мазохизма.
+                    </div>
+                </div>
+
+                <button class="diff-action-btn btn-select-normal">
+                    [ ВЫБРАТЬ РАЗУМНЫЙ ПУТЬ ]
+                </button>
+            </div>
+
+            <!-- КАРТОЧКА: СЛОЖНЫЙ / ЛОВУШКА ДЛЯ ЭГО -->
+            <div class="diff-card hard-card" onclick="handleHardClick()" onmouseenter="onHardCardHover()">
+                <div>
+                    <span class="diff-card-badge badge-hard">☠ 98.7% СДАЛИСЬ // 0% ДОП. НАГРАД</span>
+                    <div class="diff-card-header">
+                        <h3 style="color:var(--danger);">СЛОЖНЫЙ РЕЖИМ</h3>
+                        <div class="diff-card-subtitle" style="color:#ff8b94;">«Спойлер: твоё эго сейчас сделает глупую ошибку»</div>
+                    </div>
+
+                    <ul class="diff-specs">
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">🔑</span>
+                            <span class="diff-spec-label">Результат:</span>
+                            <span class="diff-spec-val" style="color:var(--gold); font-weight:bold;">РОВНО ТОТ ЖЕ САМЫЙ КЛЮЧ (0 бонусов)</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">🌀</span>
+                            <span class="diff-spec-label">Пространство:</span>
+                            <span class="diff-spec-val" style="color:var(--cyan);">4D-тессеракт Римана со склейкой</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">⚡</span>
+                            <span class="diff-spec-label">Расчёты:</span>
+                            <span class="diff-spec-val">Аварийные цепи, КПД 80%, синтез изотопов</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">⏱</span>
+                            <span class="diff-spec-label">Время:</span>
+                            <span class="diff-spec-val" style="color:var(--danger);">Часы боли перед нажатием [Сменить режим]</span>
+                        </li>
+                        <li class="diff-spec-item">
+                            <span class="diff-spec-icon">🤯</span>
+                            <span class="diff-spec-label">Психика:</span>
+                            <span class="diff-spec-val" style="color:var(--danger);">Уничтоженная самооценка</span>
+                        </li>
+                    </ul>
+
+                    <div class="diff-verdict-box hard-verdict" id="hardTauntText">
+                        «Я особенный, я справлюсь» — последняя мысль 98.7% тех, кто сломался на 4D-тессеракте.
+                    </div>
+                </div>
+
+                <button class="diff-action-btn btn-select-hard">
+                    [ ПОТЕШИТЬ ЭГО И СДАТЬСЯ ]
+                </button>
+            </div>
+        </div>
+
+        <!-- ОКНО ПОСЛЕДНЕГО ПРЕДУПРЕЖДЕНИЯ (ПРОВЕРКА НА САМООБМАН) -->
+        <div class="hard-warning-overlay" id="hardWarningOverlay">
+            <div class="hard-warning-box">
+                <div class="hard-warn-title">⚠ ПРОВЕРКА САМООЦЕНКИ // ТЫ НЕ ПОТЯНЕШЬ ⚠</div>
+                <div class="hard-warn-text">
+                    <p style="margin-bottom:10px;">Терминал видит твоё упрямство и предупреждает <strong>в последний раз</strong>:</p>
+                    <p style="margin-bottom:8px; color:var(--gold);">• <strong>Результат будет В ТОЧНОСТИ ТАКИМ ЖЕ</strong>, как в легком режиме. Никаких медалей, скрытых сцен или преимуществ.</p>
+                    <p style="margin-bottom:8px; color:var(--danger);">• 4D-навигацию Римана в Узле III ты <strong>физически не потянешь</strong> без высшего образования в топологии.</p>
+                    <p style="color:var(--cyan);">• Через 10 минут ты всё равно вернёшься сюда и нажмёшь «Легкий». Зачем тратить время?</p>
+                </div>
+                <div class="hard-warn-btns">
+                    <button class="diff-action-btn btn-select-normal" onclick="handleNormalClick()">
+                        ✓ ЛАДНО, Я УМНЕЕ ЭТОГО (ВЫБРАТЬ ЛЕГКИЙ И СБЕРЕЧЬ ЛИЦО)
+                    </button>
+                    <button class="diff-action-btn btn-select-hard" style="font-size:0.75rem; opacity:0.85;" onclick="confirmHardMode()">
+                        ☠ Я НЕ СЛУШАЮ И НАМЕРЕН СТРАДАТЬ В СЛОЖНОМ РЕЖИМЕ
+                    </button>
+                    <button class="hud-switch-btn" style="margin-top:4px;" onclick="closeHardWarning()">[ ВЕРНУТЬСЯ К ВЫБОРУ ]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="diff-floating-control" style="position: fixed; top: 12px; right: 16px; z-index: 1000; display: flex; align-items: center; gap: 8px; background: rgba(9, 13, 20, 0.92); border: 1px solid rgba(240,185,11,0.35); padding: 5px 12px; border-radius: 4px; backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0,0,0,0.6);">
+    <span id="hudDiffBadge" style="color:var(--gold); font-size:0.72rem; font-weight:bold; letter-spacing:1px;">РЕЖИМ: ЛЕГКИЙ [РАЗУМНЫЙ ВЫБОР]</span>
+    <button class="hud-switch-btn" id="hudSwitchBtn" onclick="openDiffOverlay()">[ СМЕНИТЬ РЕЖИМ ]</button>
+</div>
+
+<div class="container" style="margin-top: 24px;">
+    <!-- ================= УЗЕЛ I: ЭЛЕКТРОСИСТЕМА BOEING 737 ================= -->
+    <section class="node-panel" id="node1">
+        <div class="node-header">
+            <span class="node-title">I. РАСЧЁТ ЭЛЕКТРОСИСТЕМЫ САМОЛЁТА BOEING 737 NG</span>
+            <span class="status-badge" id="status1">ТРЕБУЕТСЯ РАСЧЁТ НАГРУЗКИ</span>
+        </div>
+
+        <div class="riddle-box" id="riddleNode1"></div>
+
+        <div class="artifact-box">
+            <img id="topologyImg" width="480" height="160">
+            <div class="artifact-caption">
+                <span id="diagramCaption">Диаграмма шины B737 BTCU</span>
+                <a id="downloadDiagram" class="artifact-link" href="#">[ Скачать оригинал схемы ]</a>
+            </div>
+        </div>
+
+        <canvas id="waveCanvas" width="780" height="115"></canvas>
+
+        <div class="slider-group">
+            <div class="slider-label"><span id="labelU">Параметр 1</span><span class="slider-val"><span id="valU">50</span></span></div>
+            <input type="range" id="sliderU" min="5" max="250" step="5" value="50">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label"><span id="labelF">Параметр 2</span><span class="slider-val"><span id="valF">100</span></span></div>
+            <input type="range" id="sliderF" min="10" max="350" step="5" value="100">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label"><span id="labelI">Параметр 3</span><span class="slider-val"><span id="valI">40</span></span></div>
+            <input type="range" id="sliderI" min="5" max="200" step="5" value="40">
+        </div>
+    </section>
+
+    <!-- ================= УЗЕЛ II ================= -->
+    <section class="node-panel locked" id="node2">
+        <div class="node-header">
+            <span class="node-title">II. ДЕШИФРАТОР И ПАНЕЛЬ АЗС АСТРОКОМПАСА</span>
+            <span class="status-badge" id="status2">ОБЕСТОЧЕНО</span>
+        </div>
+        <div class="riddle-box" id="riddleNode2"></div>
+        <div class="slider-group">
+            <div class="slider-label">
+                <span id="rotorLabel">Смещение ротора астродешифратора (0 — 31):</span>
+                <span class="slider-val" id="valShift">0</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button type="button" class="btn" style="padding:5px 12px; font-size:0.8rem;" onclick="stepShift(-1)">-1</button>
+                <input type="range" id="sliderShift" min="0" max="31" value="0" style="flex:1;">
+                <button type="button" class="btn" style="padding:5px 12px; font-size:0.8rem;" onclick="stepShift(1)">+1</button>
+            </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.73rem;">
+            <span style="color:var(--gold);">БОРТОВОЙ КРИПТОКОНТУР:</span>
+            <span id="cipherSyncStatus" style="color:var(--dim);">[ СТАТУС: ТРЕБУЕТСЯ КАЛИБРОВКА РОТОРА ]</span>
+        </div>
+        <div class="cipher-screen" id="cipherText"></div>
+        <div class="altar-slots">
+            <div class="slot" data-slot="0"><span class="slot-title" id="slotTitle0">СЛОТ I</span><div class="slot-content"></div></div>
+            <div class="slot" data-slot="1"><span class="slot-title" id="slotTitle1">СЛОТ II</span><div class="slot-content"></div></div>
+            <div class="slot" data-slot="2"><span class="slot-title" id="slotTitle2">СЛОТ III</span><div class="slot-content"></div></div>
+            <div class="slot" data-slot="3"><span class="slot-title" id="slotTitle3">СЛОТ IV</span><div class="slot-content"></div></div>
+        </div>
+        <div class="cores-pool" id="coresPool"></div>
+    </section>
+
+    <!-- ================= УЗЕЛ III: ОБЪЁМНЫЙ 3D/4D ТЕССЕРАКТ РОВЕРА ================= -->
+    <section class="node-panel locked" id="node3">
+        <div class="node-header">
+            <span class="node-title" id="node3Title">III. ПРОСТРАНСТВЕННАЯ НАВИГАЦИЯ РОВЕРА</span>
+            <span class="status-badge" id="status3">ОБЕСТОЧЕНО</span>
+        </div>
+
+        <div class="riddle-box" id="roverRiddleBox"></div>
+
+        <div class="rover-workspace">
+            <div class="rover-map-wrap">
+                <canvas id="roverCanvas" width="494" height="420"></canvas>
+
+                <!-- Ползунок вращения 4-го измерения W (выворачивает внутренний куб через внешний) -->
+                <div id="hyperRotGroup" style="margin: 8px 0; display:none; text-align:left;">
+                    <div class="slider-label" style="font-size:0.76rem; color:var(--cyan);">
+                        <span>🌀 Фазовый разворот 4-го измерения (проекция XW/ZW тессеракта):</span>
+                        <span id="valWAngle">0°</span>
+                    </div>
+                    <input type="range" id="sliderWAngle" min="0" max="360" value="0">
+                </div>
+
+                <div class="rover-telemetry">
+                    <span>ВРЕМЯ: <strong id="roverTime" style="color:var(--gold);">0</strong> / <span id="roverMaxTime">20</span> с</span>
+                    <span>МАЯКИ: <strong id="roverBeacons" style="color:var(--accent);">0</strong> / <span id="roverMaxBeacons">2</span></span>
+                    <span id="roverCoordLabel">КООРД: <strong style="color:var(--cyan);">0,0,0</strong></span>
+                </div>
+                <div class="hint-note" style="color:var(--cyan);">
+                    * Зажмите левую кнопку мыши на голограмме для свободного 3D-вращения куба!
+                </div>
+                <div id="roverMsg" style="font-size:0.78rem; color:var(--dim); margin-top:6px; min-height:20px;">
+                    Готов к вводу алгоритма...
+                </div>
+            </div>
+
+            <div>
+                <p style="font-size:0.8rem; color:var(--gold); margin-bottom:6px;">1. Палитра пространственных команд:</p>
+                <div class="cmd-palette">
+                    <button class="cmd-btn loop-cmd" data-cmd="LOOP2">⟳ ЦИКЛ ×2 (0 с)</button>
+                    <button class="cmd-btn loop-cmd" data-cmd="LOOP3">⟳ ЦИКЛ ×3 (0 с)</button>
+                    <button class="cmd-btn" data-cmd="FWD1">↑ ВПЕРЕД 1 (1 с)</button>
+                    <button class="cmd-btn" data-cmd="FWD2">⇈ ВПЕРЕД 2 (2 с)</button>
+                    <button class="cmd-btn" data-cmd="RIGHT">↻ ВПРАВО XY 90° (1 с)</button>
+                    <button class="cmd-btn" data-cmd="LEFT">↺ ВЛЕВО XY 90° (1 с)</button>
+                    <button class="cmd-btn" data-cmd="Z_UP">▲ ПОДЪЕМ ПО ОСИ Z (+1) (1 с)</button>
+                    <button class="cmd-btn hyper-cmd" id="hyperCmdBtn" data-cmd="HYPER" style="display:none;">
+                        🌀 4D-ПЕРЕХОД W (ВНЕШНИЙ ↔ ВНУТРЕННИЙ КУБ + 90° ВПРАВО) (1 с)
+                    </button>
+                </div>
+
+                <p style="font-size:0.8rem; color:var(--gold); margin-bottom:6px;">2. Буфер памяти контроллера (клик очищает слот):</p>
+                <div class="prog-slots" id="progSlots"></div>
+
+                <div class="rover-controls">
+                    <button class="btn btn-accent" id="runRoverBtn" style="flex:1;">▶ ЗАПУСК РОВЕРА</button>
+                    <button class="btn" id="resetRoverBtn">СБРОС</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= УЗЕЛ IV: 3D-НУКЛЕОСИНТЕЗ ================= -->
+    <section class="node-panel locked" id="node4">
+        <div class="node-header">
+            <span class="node-title">IV. 3D-КОНСТРУКТОР ИЗОТОПОВ И ЗВЁЗДНОЙ ПЛАЗМЫ</span>
+            <span class="status-badge" id="status4">ОБЕСТОЧЕНО</span>
+        </div>
+
+        <div class="phase-steps">
+            <div class="phase-pill active" id="pillPhase1">ФАЗА 1</div>
+            <div class="phase-pill" id="pillPhase2">ФАЗА 2</div>
+            <div class="phase-pill" id="pillPhase3">ФАЗА 3</div>
+        </div>
+
+        <div class="riddle-box" id="nucleoRiddle"></div>
+
+        <div class="nucleo-workspace">
+            <div class="atom-viewport">
+                <canvas id="atom3dCanvas" width="356" height="300"></canvas>
+                <div class="rover-telemetry">
+                    <span>МАССОВОЕ ЧИСЛО (A): <strong id="massNumVal" style="color:var(--gold);">2</strong></span>
+                    <span>ЗАРЯД ИОНА (q): <strong id="ionChargeVal" style="color:var(--accent);">0</strong></span>
+                </div>
+                <div class="hint-note">* Вращайте 3D-модель атома зажатой мышью.</div>
+            </div>
+
+            <div>
+                <div class="particle-control">
+                    <div class="particle-header"><span style="color:var(--proton);">● Протоны ядра (p⁺)</span><span id="countP" style="color:var(--proton);">1</span></div>
+                    <div class="btn-row">
+                        <button class="p-btn" onclick="modParticle('p', -5)">-5</button>
+                        <button class="p-btn" onclick="modParticle('p', -1)">-1</button>
+                        <button class="p-btn" onclick="modParticle('p', 1)">+1</button>
+                        <button class="p-btn" onclick="modParticle('p', 5)">+5</button>
+                    </div>
+                </div>
+                <div class="particle-control">
+                    <div class="particle-header"><span style="color:var(--neutron);">● Нейтроны ядра (n⁰)</span><span id="countN" style="color:var(--neutron);">1</span></div>
+                    <div class="btn-row">
+                        <button class="p-btn" onclick="modParticle('n', -5)">-5</button>
+                        <button class="p-btn" onclick="modParticle('n', -1)">-1</button>
+                        <button class="p-btn" onclick="modParticle('n', 1)">+1</button>
+                        <button class="p-btn" onclick="modParticle('n', 5)">+5</button>
+                    </div>
+                </div>
+                <div class="particle-control">
+                    <div class="particle-header"><span style="color:var(--accent);">● Электроны на орбиталях (e⁻)</span><span id="countE" style="color:var(--accent);">1</span></div>
+                    <div class="btn-row">
+                        <button class="p-btn" onclick="modParticle('e', -5)">-5</button>
+                        <button class="p-btn" onclick="modParticle('e', -1)">-1</button>
+                        <button class="p-btn" onclick="modParticle('e', 1)">+1</button>
+                        <button class="p-btn" onclick="modParticle('e', 5)">+5</button>
+                    </div>
+                </div>
+
+                <button class="btn btn-accent" id="synthBtn" style="width:100%;">⚛ ЗАФИКСИРОВАТЬ ИЗОТОП</button>
+                <div id="nucleoMsg" style="font-size:0.8rem; color:var(--dim); margin-top:8px; min-height:20px;">Ожидание конфигурации...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= УЗЕЛ V: СПЕКТРАЛЬНЫЙ КЛАССИФИКАТОР И КЛЮЧ ================= -->
+    <section class="node-panel locked" id="node5">
+        <div class="node-header">
+            <span class="node-title">V. СПЕКТРАЛЬНАЯ ДИАГНОСТИКА ЗВЁЗД // СИНТЕЗ КЛЮЧА</span>
+            <span class="status-badge" id="status5">ОБЕСТОЧЕНО</span>
+        </div>
+
+        <div class="riddle-box" id="riddleNode5"></div>
+
+        <div class="star-strip" id="starStrip"></div>
+
+        <div class="formula-box">
+            <strong>ЧАСТЬ 2: [ЧИСЛО] (контрольная сумма всех узлов комплекса)</strong>
+            <p style="font-size:0.85rem; color:var(--accent); margin-top:6px;" id="formulaDesc">
+                ЧИСЛО = Параметр 1 + Параметр 2 + Параметр 3 (Узел I) + Сдвиг ротора + Слот I + Слот II + Слот III + Слот IV + Время ровера + Массовое число (A) изотопа Фазы 3
+            </p>
+        </div>
+
+        <div class="key-input-group">
+            <input type="text" id="finalKeyInput" placeholder="ВВЕДИТЕ КЛЮЧ (СЛОВО-ЧИСЛО)">
+            <button class="btn" id="verifyBtn">ПОДТВЕРДИТЬ КЛЮЧ</button>
+        </div>
+        <div id="errorMsg" style="color:var(--danger); font-size:0.84rem; margin-top:8px; display:none;">
+            ОШИБКА ДОСТУПА: Сигнатура ключа не совпадает с параметрами выбранного режима сложности.
+        </div>
+
+        <div class="final-modal" id="successModal">
+            <h2 style="color:var(--accent); letter-spacing:2px;">КОМПЛЕКС 3301 ПОЛНОСТЬЮ СИНХРОНИЗИРОВАН</h2>
+            <p style="margin-top:8px;">Ваш ключ доступа к следующему уровню:</p>
+            <div class="final-key-display" id="confirmedKey"></div>
+            <p style="font-size:0.88rem; color:var(--text);">Скопируйте и сохраните этот ключ для открытия следующей загадки.</p>
+        </div>
+    </section>
+</div>
+
+<script>
+    let DIFFICULTY = 'normal';
+
+    // АНИМАЦИЯ ШАПКИ (4D-ТЕССЕРАКТ)
+    (function initHeaderHud() {
+        const hCanvas = document.getElementById('hudTesseract');
+        if (!hCanvas) return;
+        const hCtx = hCanvas.getContext('2d');
+        let angle = 0;
+        const v4 = [];
+        for (let i = 0; i < 16; i++) v4.push([(i&1)?1:-1, (i&2)?1:-1, (i&4)?1:-1, (i&8)?1:-1]);
+        const e4 = [];
+        for (let i = 0; i < 16; i++) for (let j = i + 1; j < 16; j++) if ([1,2,4,8].includes(i ^ j)) e4.push([i, j]);
+
+        function drawHud() {
+            hCtx.clearRect(0, 0, 130, 130);
+            hCtx.strokeStyle = 'rgba(240, 185, 11, 0.3)';
+            hCtx.beginPath(); hCtx.arc(65, 65, 58, 0, Math.PI * 2); hCtx.stroke();
+            const proj = v4.map(([x, y, z, w]) => {
+                let x1 = x * Math.cos(angle) - w * Math.sin(angle);
+                let w1 = x * Math.sin(angle) + w * Math.cos(angle);
+                let y1 = y * Math.cos(angle * 0.7) - z * Math.sin(angle * 0.7);
+                let z1 = y * Math.sin(angle * 0.7) + z * Math.cos(angle * 0.7);
+                const ws = 1 / (2.6 - w1), zs = 52 / (3.2 - z1 * ws);
+                return [65 + x1 * ws * zs, 65 + y1 * ws * zs];
+            });
+            hCtx.strokeStyle = DIFFICULTY === 'hard' ? 'rgba(56, 189, 248, 0.8)' : 'rgba(0, 255, 157, 0.75)';
+            e4.forEach(([i, j]) => {
+                hCtx.beginPath(); hCtx.moveTo(proj[i][0], proj[i][1]); hCtx.lineTo(proj[j][0], proj[j][1]); hCtx.stroke();
+            });
+            angle += 0.016;
+            requestAnimationFrame(drawHud);
+        }
+        drawHud();
+    })();
+
+    let audioCtx = null;
+    function getAudioCtx() {
+        if (!audioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) audioCtx = new AC();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
+        return audioCtx;
+    }
+
+    function playTerminalSound(type) {
+        try {
+            const actx = getAudioCtx();
+            if (!actx) return;
+            const now = actx.currentTime;
+
+            if (type === 'hover-normal') {
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.02, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(now); osc.stop(now + 0.05);
+            } else if (type === 'hover-hard') {
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.1);
+                gain.gain.setValueAtTime(0.025, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'click') {
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, now);
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(now); osc.stop(now + 0.07);
+            } else if (type === 'warn') {
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(170, now + 0.08);
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(now); osc.stop(now + 0.25);
+            }
+        } catch (e) {}
+    }
+
+    const HARD_TAUNTS = [
+        "«Я особенный, я справлюсь» — последняя мысль 98.7% тех, кто сломался на 4D-тессеракте.",
+        "Результат будет В ТОЧНОСТИ ТАКИМ ЖЕ. Зачем ты вообще сюда смотришь?",
+        "Твоё эго сейчас сделает ошибку стоимостью в два часа нервов.",
+        "Здесь нет секретной концовки. Только неевклидовы муки и разбитые ожидания.",
+        "Выбери легкий режим. Сохрани лицо, время и рассудок.",
+        "Ты не потянешь. И терминал об этом знает.",
+        "В Узле III нет пощады. Спойлер: ты вернёшься в меню через 5 минут."
+    ];
+    let tauntIdx = 0;
+    function onHardCardHover() {
+        playTerminalSound('hover-hard');
+        tauntIdx = (tauntIdx + 1) % HARD_TAUNTS.length;
+        const el = document.getElementById('hardTauntText');
+        if (el) el.textContent = HARD_TAUNTS[tauntIdx];
+    }
+
+    function openDiffOverlay() {
+        closeHardWarning();
+        document.getElementById('diffOverlay').style.display = 'flex';
+    }
+
+    function closeHardWarning() {
+        const w = document.getElementById('hardWarningOverlay');
+        if (w) w.style.display = 'none';
+    }
+
+    function handleNormalClick() {
+        playTerminalSound('click');
+        selectDifficulty('normal');
+    }
+
+    function handleHardClick() {
+        playTerminalSound('warn');
+        document.getElementById('hardWarningOverlay').style.display = 'flex';
+    }
+
+    function confirmHardMode() {
+        playTerminalSound('click');
+        selectDifficulty('hard');
+    }
+
+    function selectDifficulty(mode) {
+        DIFFICULTY = mode;
+        document.getElementById('diffOverlay').style.display = 'none';
+        closeHardWarning();
+
+        const hudBadge = document.getElementById('hudDiffBadge');
+        const hudSwitchBtn = document.querySelector('.hud-switch-btn');
+        if (mode === 'hard') {
+            if (hudBadge) {
+                hudBadge.textContent = 'РЕЖИМ: СЛОЖНЫЙ [ТЫ НЕ ПОТЯНЕШЬ]';
+                hudBadge.style.color = 'var(--danger)';
+            }
+            if (hudSwitchBtn) hudSwitchBtn.textContent = '[ СДАТЬСЯ / СМЕНИТЬ РЕЖИМ ]';
+        } else {
+            if (hudBadge) {
+                hudBadge.textContent = 'РЕЖИМ: ЛЕГКИЙ [РАЗУМНЫЙ ВЫБОР]';
+                hudBadge.style.color = 'var(--accent)';
+            }
+            if (hudSwitchBtn) hudSwitchBtn.textContent = '[ СМЕНИТЬ РЕЖИМ ]';
+        }
+        const hudMetric = document.getElementById('hudMetric');
+        if (hudMetric) hudMetric.textContent = mode === 'hard' ? '4D-ТЕССЕРАКТ' : '3D-КУБ';
+
+        node1Solved = false;
+        [1,2,3,4,5].forEach(n => {
+            const nodeEl = document.getElementById('node' + n);
+            if (nodeEl) {
+                nodeEl.classList.remove('solved');
+                if (n > 1) nodeEl.classList.add('locked');
+            }
+            const led = document.getElementById('led' + n);
+            if (led) led.classList.remove('online');
+        });
+        document.getElementById('status1').textContent = 'ТРЕБУЕТСЯ РАСЧЁТ НАГРУЗКИ';
+        document.getElementById('successModal').style.display = 'none';
+        document.getElementById('finalKeyInput').value = '';
+
+        setupNode1(); setupNode2(); setupNode3(); setupNode4(); setupNode5();
+    }
+    window.selectDifficulty = selectDifficulty;
+    window.handleNormalClick = handleNormalClick;
+    window.handleHardClick = handleHardClick;
+    window.confirmHardMode = confirmHardMode;
+    window.closeHardWarning = closeHardWarning;
+    window.openDiffOverlay = openDiffOverlay;
+    window.onHardCardHover = onHardCardHover;
+    window.playTerminalSound = playTerminalSound;
+
+    // =========================================================================
+    // УЗЕЛ I: BOEING 737 NG ЭЛЕКТРОСИСТЕМА
+    // =========================================================================
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    const sliderU = document.getElementById('sliderU');
+    const sliderF = document.getElementById('sliderF');
+    const sliderI = document.getElementById('sliderI');
+    let phase = 0, node1Solved = false, committedU = 50, committedF = 100, committedI = 40;
+
+    function setupNode1() {
+        const fname = DIFFICULTY === 'hard' ? 'b737_idg_kva_plus_tru_count_x5.png' : 'b737_tr3_limit_65_amp.png';
+        document.getElementById('riddleNode1').innerHTML = DIFFICULTY === 'normal'
+            ? `<p>Выполните расчёт контура генератора IDG самолёта <strong>Boeing 737 NG</strong>:</p>
+               <p>1. <strong>Фазный ток генератора (I<sub>фаз</sub>, А)</strong>: Трехфазный генератор IDG питает симметричную активную нагрузку суммарной мощностью <strong>34,5 кВт</strong> (34 500 Вт) при стандартном фазном напряжении бортовой сети <strong>115 В</strong> (cos φ = 1). Вычислите ток в <em>одной фазе</em>.</p>
+               <p>2. <strong>Частота вращения ротора (ν, об/с)</strong>: Сколько оборотов <em>в секунду</em> совершает ротор синхронного генератора с <strong>2 парами полюсов (p = 2)</strong> для выработки стандартной бортовой частоты 400 Гц?</p>
+               <p>3. <strong>Уставка тока TR3 (I<sub>TR3</sub>, А)</strong>: Порог срабатывания токовой защиты выпрямительного блока TR3 (Transformer-Rectifier Unit).</p>`
+            : `<p>Выполните расчёт аварийного и нагрузочного режимов электросистемы <strong>Boeing 737 NG</strong>:</p>
+               <p>1. <strong>Ток разряда АКБ на инвертор (I<sub>АКБ</sub>, А)</strong>: При отказе генераторов в режиме <code>STANDBY POWER</code> на Boeing 737 шина <em>AC Standby Bus</em> питается от <strong>24-вольтовой батареи</strong> через статический инвертор (Static Inverter) с <strong>КПД η = 80% (0,8)</strong>. Потребляемая приборами выходная мощность составляет <strong>1 440 Вт</strong>. Какой ток (в А) инвертор потребляет от 24-вольтовой батареи с учётом КПД?</p>
+               <p>2. <strong>Полный фазный ток IDG-1 (I<sub>полн</sub>, А)</strong>: Трехфазный генератор IDG-1 питает нагрузку суммарной активной мощностью <strong>41,4 кВт</strong> (41 400 Вт) при коэффициенте мощности <strong>cos φ = 0,8</strong> и фазном напряжении <strong>115 В</strong>. Вычислите полный ток в одной фазе генератора.</p>
+               <p>3. <strong>Код контроллера BTB (K<sub>BTB</sub>)</strong>: Контрольный параметр логики шины межгенераторной связи (Bus Tie Breaker).</p>`;
+
+        document.getElementById('labelU').textContent = DIFFICULTY === 'normal' ? '1. Фазный ток генератора I_фаз (А)' : '1. Ток батареи 24В на входе инвертора I_АКБ (А)';
+        document.getElementById('labelF').textContent = DIFFICULTY === 'normal' ? '2. Скорость ротора при p=2 (об/с)' : '2. Полный фазный ток IDG при 41.4 кВт и cos φ=0.8 (А)';
+        document.getElementById('labelI').textContent = DIFFICULTY === 'normal' ? '3. Уставка защиты выпрямителя TR3 (А)' : '3. Код контроллера BTB (K_BTB)';
+
+        const off = document.createElement('canvas'); off.width = 480; off.height = 160;
+        const c = off.getContext('2d');
+        c.fillStyle = '#040609'; c.fillRect(0, 0, 480, 160);
+        c.strokeStyle = '#111a24';
+        for (let x = 0; x < 480; x += 20) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,160); c.stroke(); }
+        for (let y = 0; y < 160; y += 20) { c.beginPath(); c.moveTo(0,y); c.lineTo(480,y); c.stroke(); }
+        ['rgba(240,185,11,0.5)', 'rgba(0,255,157,0.6)', 'rgba(56,189,248,0.5)'].forEach((col, idx) => {
+            c.strokeStyle = col; c.beginPath();
+            for (let x = 0; x < 480; x++) {
+                const y = 80 + Math.sin(x * (DIFFICULTY === 'hard' ? 0.16 : 0.11) + idx * 2) * 48 * Math.exp(-x/190);
+                if (x === 0) c.moveTo(x,y); else c.lineTo(x,y);
+            }
+            c.stroke();
+        });
+        c.fillStyle = '#5a6b7c'; c.font = '11px Courier New';
+        c.fillText('B737-800 NG // NO PARALLEL AC BUS TIE LOGIC', 16, 20);
+
+        const dataUrl = off.toDataURL('image/png') + '#' + fname;
+        const img = document.getElementById('topologyImg'), lnk = document.getElementById('downloadDiagram');
+        img.src = dataUrl; img.alt = fname; img.dataset.filename = fname;
+        lnk.href = dataUrl; lnk.download = fname;
+    }
+
+    sliderU.addEventListener('input', () => { document.getElementById('valU').textContent = sliderU.value; });
+    sliderF.addEventListener('input', () => { document.getElementById('valF').textContent = sliderF.value; });
+    sliderI.addEventListener('input', () => { document.getElementById('valI').textContent = sliderI.value; });
+
+    function commitAndCheckNode1() {
+        committedU = parseInt(sliderU.value, 10);
+        committedF = parseInt(sliderF.value, 10);
+        committedI = parseInt(sliderI.value, 10);
+
+        // Легкий: 100, 200, 65 | Сложный: 75, 150, 105
+        const okNormal = (DIFFICULTY === 'normal' && committedU + committedF + committedI === 365 && committedU * committedI === 6500 && committedF - committedU === 100);
+        const okHard   = (DIFFICULTY === 'hard'   && committedU + committedF + committedI === 330 && committedU * committedF === 11250 && committedF - committedI === 45);
+
+        if ((okNormal || okHard) && !node1Solved) {
+            node1Solved = true;
+            document.getElementById('node1').classList.add('solved');
+            document.getElementById('status1').textContent = 'ШИНЫ СИНХРОНИЗИРОВАНЫ';
+            const led1 = document.getElementById('led1');
+            if (led1) led1.classList.add('online');
+            const hudBusAC = document.getElementById('hudBusAC');
+            if (hudBusAC) {
+                hudBusAC.textContent = 'B737 IDG ONLINE';
+                hudBusAC.style.color = 'var(--accent)';
+            }
+            document.getElementById('node2').classList.remove('locked');
+            document.getElementById('status2').textContent = 'ПИТАНИЕ ПОДАНО';
+        }
+    }
+    [sliderU, sliderF, sliderI].forEach(s => s.addEventListener('change', commitAndCheckNode1));
+
+    (function drawWaves() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.strokeStyle = node1Solved ? '#00ff9d' : '#ff4757';
+        ctx.lineWidth = 2;
+        for (let x = 0; x < canvas.width; x++) {
+            const noise = node1Solved ? 0 : Math.sin(x * 0.25 - phase * 2) * 8;
+            const y = 57 + Math.sin(x * (committedF / 4000) + phase) * (committedU / 4)
+                         + Math.cos(x * (committedI / 1000) - phase) * 11 + noise;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        phase += 0.05;
+        requestAnimationFrame(drawWaves);
+    })();
+
+    // =========================================================================
+    // УЗЕЛ II: ШИФР ЦЕЗАРЯ И ПАНЕЛЬ АЗС
+    // =========================================================================
+    const ALPHABET = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
+    const MSG_NORMAL = "ЬХЯНЪХТ НЮЯЭЫЧЫЩЬНЮН: ЮШЫЯ I — ЪНЬЭМУТЪХТ НПХНГХЫЪЪЫЦ НЧЧАЩАШМЯЫЭЪЫЦ ОНЯНЭТХ. ЮШЫЯ II — ЯЫЧ ЫОЫРЭТПН ЬПС ЩЫЖЪЫЮЯЙЛ ЯЭХЮЯН ЕТЮЯЙСТЮМЯ ПНЯЯ ЫЯ ЕХЪИ СПНСГНЯЙ ДТЯИЭТ ПЫШЙЯН. ЮШЫЯ III — ЬТЭХЫС ЫОЭНЖТЪХМ НЮЯТЭЫХСН П РЫСНВ ЬЭХ ОЫШЙЕЫЦ ЬЫШАЫЮХ ЫЭОХЯИ ДТЯИЭТ НТ. ЮШЫЯ IV — ЪЫЩТЭ ЬШНЪТЯИ ЛЬХЯТЭ ЫЯ ЮЫШЪГН.";
+    const MSG_HARD   = "УХУГЫЬАОЬ ВГБЕБЭБЮ 3301 // ФБГЕ B737-ASTRO: ДЮБЕ I [ЛЫАУ DC-1] — ДЖЯЯУГАОЬ ЕБЭ (У) ВГЫ ВЫЕУАЫЫ БЕ ЛЫАО 28 Х ЧХЖИ ВУГУЮЮШЮПАОИ ЙШВШЬ: ЫЯВЖЮПДАБЦБ ЮБЭУЕБГУ WXR ЯБМАБДЕПС 560 ХЕ Ы БФБЦГШХУЕШЮТ ЧУЕКЫЭУ AOA Д ДБВГБЕЫХЮШАЫШЯ 2.8 БЯ. ДЮБЕ II [ФЖЗШГ ESS] — БЕЧУААУТ ШЯЭБДЕП (У·К) УХЫУЙЫБААБЬ ФУЕУГШЫ ЫЪ 20 РЮШЯШАЕБХ NI-CD (ВБ 1.2 Х ЭУЩЧОЬ), ВЫЕУХЛШЬ УХУГЫЬАЖС ЛЫАЖ ВБДЕБТААБЬ ЯБМАБДЕПС 384 ХЕ Х ЕШКШАЫШ 90 ЯЫАЖЕ. ДЮБЕ III [ФУЮЮЫДЕЫЭУ ORB] — ФБЮПЛУТ ВБЮЖБДП БГФЫЕО (УШ) ЫДДЮШЧБХУЕШЮПДЭБЦБ ЪБАЧУ, ШДЮЫ ШЦБ ВШГЫЦШЮЫЬ ДБДЕУХЮТШЕ 6 УШ ВГЫ РЭДЙШАЕГЫДЫЕШЕШ БЧАУ ЕГШЕП (ВШГЫБЧ БФГУМШАЫТ 27 ЮШЕ). ДЮБЕ IV [ЦГУХЫЯШЕГЫТ GRAV] — ВБХШГИАБДЕАУТ ЦГУХЫЕУЙЫТ РЭЪБВЮУАШЕО Х ШЧЫАЫЙУИ ЪШЯАБЦБ G, ШДЮЫ ШШ ДГШЧАТТ ВЮБЕАБДЕП ДБДЕУХЮТШЕ 0.8 БЕ ЪШЯАБЬ, У РЭХУЕБГЫУЮПАОЬ ГУЧЫЖД Х 2.5 ГУЪУ ФБЮПЛШ ЪШЯАБЦБ.";
+
+    const sliderShift = document.getElementById('sliderShift');
+    let selectedCore = null;
+    const slotValues = [null, null, null, null];
+
+    function stepShift(delta) {
+        sliderShift.value = Math.max(0, Math.min(31, parseInt(sliderShift.value, 10) + delta));
+        updateCipher();
+    }
+    window.stepShift = stepShift;
+
+    function setupNode2() {
+        sliderShift.value = 0;
+        slotValues.fill(null);
+        document.querySelectorAll('.slot-content').forEach(el => el.innerHTML = '');
+
+        const isHard = (DIFFICULTY === 'hard');
+
+        document.getElementById('riddleNode2').innerHTML = isHard
+            ? `<p>1. <strong>Криптографическая калибровка астрокомпаса</strong>: Бортовой протокол зашифрован шифром Цезаря. Сдвиг ротора не сообщается прямо, а заложен в астронавигационную константу:</p>
+               <p style="color:var(--gold); margin:6px 0 6px 12px; border-left:2px solid var(--gold); padding-left:10px;">
+                   <em>«Ключ калибровки дешифратора равен <strong>Метонову циклу</strong> — числу солнечных лет (соответствующему ровно 235 синодическим месяцам), через которое фазы Луны повторяются на те же календарные даты для коррекции прецессии астрокомпаса.»</em>
+               </p>
+               <p>Вычислите этот сдвиг и выставьте его на роторе дешифратора.</p>
+               <p>2. <strong>Панель АЗС электросистемы и астронавигации</strong>: Решите 4 физико-инженерные задачи из расшифрованного отчета и распределите модули по слотам I–IV (в пуле присутствуют ложные модули-дистракторы!).</p>`
+            : `<p>1. <strong>Дешифратор Цезаря</strong>: Выставите стандартный криптографический сдвиг <code>ROT-13</code> (13) на роторе дешифратора, чтобы прочитать бортовую сводку.</p>
+               <p>2. Перетащите 4 вычисленных модуля АЗС в слоты I–IV.</p>`;
+
+        const titles = isHard
+            ? ['СЛОТ I // ШИНА DC-1', 'СЛОТ II // БУФЕР ESS', 'СЛОТ III // БАЛЛИСТИКА ORB', 'СЛОТ IV // ГРАВИМЕТРИЯ GRAV']
+            : ['СЛОТ I (АКБ, В)', 'СЛОТ II (ТОК ПВД, А)', 'СЛОТ III (ОРБИТА, ЛЕТ)', 'СЛОТ IV (ПЛАНЕТА №)'];
+        titles.forEach((t, i) => document.getElementById('slotTitle' + i).textContent = t);
+
+        const poolVals = isHard
+            ? [2, 4, 6, 9, 15, 16, 18, 20, 24, 28, 30, 36]
+            : [10, 24, 5, 30, 15, 42, 8, 20];
+
+        const poolEl = document.getElementById('coresPool');
+        poolEl.innerHTML = '';
+        poolVals.forEach(v => {
+            const div = document.createElement('div');
+            div.className = 'core-item'; div.draggable = true; div.dataset.val = v;
+            div.textContent = `[ ${v} ]`;
+            div.addEventListener('dragstart', e => { selectedCore = div; e.dataTransfer.setData('text/plain', v); });
+            div.addEventListener('click', () => {
+                document.querySelectorAll('.core-item').forEach(c => c.classList.remove('selected'));
+                selectedCore = div; div.classList.add('selected');
+            });
+            poolEl.appendChild(div);
+        });
+        updateCipher();
+    }
+
+    function updateCipher() {
+        const shift = parseInt(sliderShift.value, 10);
+        document.getElementById('valShift').textContent = shift;
+        const src = DIFFICULTY === 'normal' ? MSG_NORMAL : MSG_HARD;
+        let out = "";
+        for (let ch of src) {
+            const idx = ALPHABET.indexOf(ch);
+            out += idx !== -1 ? ALPHABET[(idx - shift + 32) % 32] : ch;
+        }
+        document.getElementById('cipherText').textContent = out;
+
+        const targetShift = DIFFICULTY === 'normal' ? 13 : 19;
+        const cipherScreen = document.getElementById('cipherText');
+        const statusEl = document.getElementById('cipherSyncStatus');
+        if (shift === targetShift) {
+            cipherScreen.style.borderColor = 'var(--accent)';
+            cipherScreen.style.boxShadow = '0 0 15px rgba(0, 255, 157, 0.2)';
+            if (statusEl) {
+                statusEl.textContent = '[ КРИПТОСИНХРОНИЗАЦИЯ: УСПЕШНО // ПРОТОКОЛ ДЕШИФРОВАН ]';
+                statusEl.style.color = 'var(--accent)';
+            }
+        } else {
+            cipherScreen.style.borderColor = '#1c2530';
+            cipherScreen.style.boxShadow = 'none';
+            if (statusEl) {
+                statusEl.textContent = '[ СТАТУС: ТРЕБУЕТСЯ КАЛИБРОВКА РОТОРА ]';
+                statusEl.style.color = 'var(--dim)';
+            }
+        }
+    }
+    sliderShift.addEventListener('input', updateCipher);
+
+    document.querySelectorAll('.slot').forEach(slot => {
+        slot.addEventListener('dragover', e => e.preventDefault());
+        slot.addEventListener('drop', e => { e.preventDefault(); if (selectedCore) placeCoreInSlot(selectedCore, slot); });
+        slot.addEventListener('click', () => {
+            const idx = parseInt(slot.dataset.slot, 10);
+            if (selectedCore) placeCoreInSlot(selectedCore, slot);
+            else if (slotValues[idx] !== null) { slotValues[idx] = null; slot.querySelector('.slot-content').innerHTML = ''; }
+        });
+    });
+
+    function placeCoreInSlot(core, slot) {
+        const idx = parseInt(slot.dataset.slot, 10);
+        slotValues[idx] = parseInt(core.dataset.val, 10);
+        slot.querySelector('.slot-content').innerHTML = `<div class="core-item">${core.textContent}</div>`;
+        document.querySelectorAll('.core-item').forEach(c => c.classList.remove('selected'));
+        selectedCore = null;
+        checkNode2();
+    }
+
+    function checkNode2() {
+        if (slotValues.includes(null)) return;
+        const sig = slotValues[0] * 100000 + slotValues[1] * 1000 + slotValues[2] * 10 + slotValues[3];
+        const ok = (DIFFICULTY === 'normal' && sig === 2415085) || (DIFFICULTY === 'hard' && sig === 3024092);
+        if (ok) {
+            document.getElementById('node2').classList.add('solved');
+            document.getElementById('status2').textContent = 'ШИНЫ ЗАПИТАНЫ';
+            const led2 = document.getElementById('led2');
+            if (led2) led2.classList.add('online');
+            const hudBusDC = document.getElementById('hudBusDC');
+            if (hudBusDC) {
+                hudBusDC.textContent = '28В ВУ / АКБ НОРМА';
+                hudBusDC.style.color = 'var(--accent)';
+            }
+            document.getElementById('node3').classList.remove('locked');
+            document.getElementById('status3').textContent = 'КОНТРОЛЛЕР АКТИВЕН';
+        }
+    }
+
+    // =========================================================================
+    // УЗЕЛ III: ОБЪЁМНЫЙ 3D-КУБ (ЛЕГКИЙ) И ВЛОЖЕННЫЙ 4D-ТЕССЕРАКТ РИМАНА (СЛОЖНЫЙ)
+    // =========================================================================
+    const rCanvas = document.getElementById('roverCanvas');
+    const rCtx = rCanvas.getContext('2d');
+    const sliderWAngle = document.getElementById('sliderWAngle');
+
+    // Легкий режим: 3D Куб 3x3x4 (X,Y in 0..2, Z in 0..3)
+    const CRATERS_3D = [[1,1,0], [0,2,0], [1,1,1], [2,2,2], [1,1,2]];
+    const BEACONS_3D = [[2,0,1], [0,2,2]];
+    const TARGET_3D  = [2,2,3];
+
+    // Сложный режим: 4D Неевклидов Тессеракт 3x3x3x2 (Внешний куб W=0 и Внутренний куб W=1)
+    const CRATERS_4D = [[1,1,0,0], [2,1,0,0], [1,1,1,1], [0,1,2,1], [1,2,0,1]];
+    const BEACONS_4D = [[2,0,1,1], [1,0,2,1], [2,2,1,0]];
+    const TARGET_4D  = [0,2,1,1];
+
+    const CMD_META = {
+        LOOP2: { label: '⟳ ЦИКЛ ×2', weight: 2, isLoop: true, count: 2 },
+        LOOP3: { label: '⟳ ЦИКЛ ×3', weight: 3, isLoop: true, count: 3 },
+        FWD1:  { label: '↑ ВПЕРЕД 1 (1с)', weight: 5, isLoop: false },
+        FWD2:  { label: '⇈ ВПЕРЕД 2 (2с)', weight: 7, isLoop: false },
+        RIGHT: { label: '↻ ВПРАВО XY 90° (1с)', weight: 11, isLoop: false },
+        LEFT:  { label: '↺ ВЛЕВО XY 90° (1с)', weight: 13, isLoop: false },
+        Z_UP:  { label: '▲ ПОДЪЕМ Z (+1) (1с)', weight: 19, isLoop: false },
+        HYPER: { label: '🌀 4D-ПЕРЕХОД W (1с)', weight: 17, isLoop: false, isHyper: true }
+    };
+
+    let programBuffer = [];
+    let roverState = { x: 0, y: 0, z: 0, w: 0, dir: 0, time: 0, collected: [], trail: [[0,0,0,0]] };
+    let isSimulating = false;
+    let rRotX = 0.48, rRotY = -0.55, wPhaseAngle = 0, isDraggingRover = false, rLastX = 0, rLastY = 0;
+
+    rCanvas.addEventListener('mousedown', e => { isDraggingRover = true; rLastX = e.clientX; rLastY = e.clientY; });
+    window.addEventListener('mouseup', () => { isDraggingRover = false; });
+    window.addEventListener('mousemove', e => {
+        if (!isDraggingRover) return;
+        rRotY += (e.clientX - rLastX) * 0.01;
+        rRotX = Math.max(-0.8, Math.min(1.3, rRotX + (e.clientY - rLastY) * 0.01));
+        rLastX = e.clientX; rLastY = e.clientY;
+        drawRoverMap();
+    });
+
+    sliderWAngle.addEventListener('input', () => {
+        wPhaseAngle = (parseInt(sliderWAngle.value, 10) * Math.PI) / 180;
+        document.getElementById('valWAngle').textContent = sliderWAngle.value + '°';
+        drawRoverMap();
+    });
+
+    function setupNode3() {
+        const slotCount = DIFFICULTY === 'hard' ? 8 : 6;
+        programBuffer = new Array(slotCount).fill(null);
+        document.getElementById('hyperCmdBtn').style.display = DIFFICULTY === 'hard' ? 'block' : 'none';
+        document.getElementById('hyperRotGroup').style.display = DIFFICULTY === 'hard' ? 'block' : 'none';
+        document.getElementById('roverMaxTime').textContent = DIFFICULTY === 'hard' ? '19' : '20';
+        document.getElementById('roverMaxBeacons').textContent = DIFFICULTY === 'hard' ? '3' : '2';
+
+        document.getElementById('roverRiddleBox').innerHTML = DIFFICULTY === 'normal'
+            ? `<p><strong>3D ОРБИТАЛЬНЫЙ КУБ (3×3×4, 6 слотов памяти)</strong>: Проведите ровер от нижнего угла <code>[S] (0,0,0)</code> (курс вдоль <strong>+X →</strong>) до вершины <code>[F] (2,2,3)</code>.</p>
+               <p>• Вращайте 3D-куб мышкой! Команда <code>▲ ПОДЪЕМ ПО ОСИ Z (+1)</code> поднимает ровер на 1 ярус вверх по вертикальной оси Z. Соберите <strong>2 маяка (⚡)</strong> за <strong>20 секунд</strong> (используйте циклический макрос из палитры для прохождения повторяющихся ярусов куба).</p>`
+            : `<p><strong>4D НЕЕВКЛИДОВ ТЕССЕРАКТ РИМАНА (Внешний 3D-куб W=0 и Вложенный 3D-куб W=1, 8 слотов памяти)</strong>:</p>
+               <p>• Пространство представляет собой настоящий <strong>4D-гиперкуб (3×3×3×2)</strong>: внутри Внешнего 3D-куба (<code>W=0</code>) подвешен Внутренний 3D-куб (<code>W=1</code>). Двигайте ползунок <strong>Фазового разворота 4-го измерения</strong> под голограммой, чтобы выворачивать внутренний куб наружу, и крутите сцену мышью в 3D!</p>
+               <p>• <strong>Команда <code>🌀 4D-ПЕРЕХОД W</code> (1 с)</strong>: Переносит ровер между Внешним и Внутренним 3D-кубом (<code>W ↔ 1−W</code>) в той же точке (X,Y,Z), а за счёт кривизны Римана поворачивает вектор курса в плоскости XY на <strong>90° вправо</strong>.</p>
+               <p>• <strong>Неевклидова антиподальная склейка граней</strong>: При выходе за любую боковую грань куба по X или Y (<code><0</code> или <code>>2</code>) ровер не разбивается, а выныривает с противоположной грани <strong>в другом 4-м измерении (<code>W ↔ 1−W</code>) с зеркально инвертированной высотой Z (<code>Z → 2 − Z</code>)</strong>!</p>
+               <p>• <strong>Архитектура памяти (8 слотов)</strong>: Линейной емкости буфера недостаточно для обхода 4D-пространства за 19 секунд. Задействуйте операторы циклов из палитры (<code>ЦИКЛ ×2</code> / <code>ЦИКЛ ×3</code>): при установке цикла в начало программы контроллер разворачивает 4-шаговый итерационный блок с последующим выполнением хвостовых команд. Соберите все <strong>3 маяка (⚡)</strong> и достигните цели <code>[F] (0,2,1, W=1)</code> за <strong>19 секунд</strong>.</p>`;
+
+        renderProgramSlots();
+        resetRover();
+    }
+
+    function renderProgramSlots() {
+        const container = document.getElementById('progSlots');
+        container.innerHTML = '';
+        programBuffer.forEach((cmd, i) => {
+            const div = document.createElement('div');
+            div.className = 'prog-slot';
+            if (cmd) {
+                div.classList.add('filled');
+                if (CMD_META[cmd].isLoop) div.classList.add('loop-filled');
+                if (CMD_META[cmd].isHyper) div.classList.add('hyper-filled');
+                div.innerHTML = `<span>#${i+1}: ${CMD_META[cmd].label}</span><span>✖</span>`;
+            } else {
+                div.innerHTML = `<span>СЛОТ ${i+1}: [ ПУСТО ]</span>`;
+            }
+            div.addEventListener('click', () => {
+                if (isSimulating) return;
+                programBuffer[i] = null; renderProgramSlots();
+            });
+            container.appendChild(div);
+        });
+    }
+
+    document.querySelectorAll('.cmd-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (isSimulating) return;
+            const emptyIdx = programBuffer.indexOf(null);
+            if (emptyIdx !== -1) { programBuffer[emptyIdx] = btn.dataset.cmd; renderProgramSlots(); }
+        });
+    });
+
+    // Проекция узла (gx, gy, gz, gw) в 3D и на 2D-экран с учетом 4D-вращения
+    function projectNode4D(gx, gy, gz, gw) {
+        let x = (gx - 1);
+        let y = (gy - 1);
+        let z = DIFFICULTY === 'normal' ? (1.5 - gz) * 0.9 : (1 - gz);
+
+        if (DIFFICULTY === 'hard') {
+            // Вложенный 4D-тессеракт (диаграмма Шлегеля + 4D-вращение в плоскости XW)
+            let w = (gw === 0) ? -1 : 1;
+            const rotW = w * Math.cos(wPhaseAngle) + (x * 0.35) * Math.sin(wPhaseAngle);
+            const shellScale = (rotW < 0) ? 1.15 : 0.52; // Внешний куб vs Внутренний куб
+            x *= shellScale * 115;
+            y *= shellScale * 115;
+            z *= shellScale * 115;
+        } else {
+            x *= 95; y *= 95; z *= 80;
+        }
+
+        // 3D-вращение камеры мышью (вокруг вертикали и наклона)
+        let x1 = x * Math.cos(rRotY) - y * Math.sin(rRotY);
+        let z1 = y * Math.cos(rRotY) + x * Math.sin(rRotY);
+        let y2 = z * Math.cos(rRotX) - z1 * Math.sin(rRotX);
+        let z2 = z1 * Math.cos(rRotX) + z * Math.sin(rRotX);
+
+        const fov = 520;
+        const s = fov / (fov + z2 + 340);
+        return { x: rCanvas.width / 2 + x1 * s, y: rCanvas.height / 2 + y2 * s, z: z2, s };
+    }
+
+    function drawRoverMap() {
+        rCtx.clearRect(0, 0, rCanvas.width, rCanvas.height);
+
+        const maxZ = DIFFICULTY === 'normal' ? 4 : 3;
+        const maxW = DIFFICULTY === 'normal' ? 1 : 2;
+
+        // 1. В 4D-режиме рисуем диагональные гиперсвязи между Внешним (W=0) и Внутренним (W=1) 3D-кубами
+        if (DIFFICULTY === 'hard') {
+            rCtx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+            rCtx.setLineDash([3, 3]);
+            for (let gx of [0, 2]) for (let gy of [0, 2]) for (let gz of [0, 2]) {
+                const p0 = projectNode4D(gx, gy, gz, 0);
+                const p1 = projectNode4D(gx, gy, gz, 1);
+                rCtx.beginPath(); rCtx.moveTo(p0.x, p0.y); rCtx.lineTo(p1.x, p1.y); rCtx.stroke();
+            }
+            rCtx.setLineDash([]);
+        }
+
+        // 2. Рисуем 3D-решетку кубов (внешнего и внутреннего)
+        for (let gw = 0; gw < maxW; gw++) {
+            const isInner = (gw === 1);
+            rCtx.strokeStyle = isInner ? 'rgba(56, 189, 248, 0.45)' : 'rgba(240, 185, 11, 0.28)';
+            rCtx.lineWidth = isInner ? 1.2 : 1;
+
+            for (let gz = 0; gz < maxZ; gz++) {
+                for (let gy = 0; gy < 3; gy++) {
+                    for (let gx = 0; gx < 3; gx++) {
+                        const p = projectNode4D(gx, gy, gz, gw);
+                        if (gx < 2) {
+                            const px = projectNode4D(gx + 1, gy, gz, gw);
+                            rCtx.beginPath(); rCtx.moveTo(p.x, p.y); rCtx.lineTo(px.x, px.y); rCtx.stroke();
+                        }
+                        if (gy < 2) {
+                            const py = projectNode4D(gx, gy + 1, gz, gw);
+                            rCtx.beginPath(); rCtx.moveTo(p.x, p.y); rCtx.lineTo(py.x, py.y); rCtx.stroke();
+                        }
+                        if (gz < maxZ - 1) {
+                            const pz = projectNode4D(gx, gy, gz + 1, gw);
+                            rCtx.beginPath(); rCtx.moveTo(p.x, p.y); rCtx.lineTo(pz.x, pz.y); rCtx.stroke();
+                        }
+                        // Узелки решетки
+                        rCtx.fillStyle = isInner ? 'rgba(56,189,248,0.4)' : 'rgba(255,255,255,0.2)';
+                        rCtx.beginPath(); rCtx.arc(p.x, p.y, 2 * p.s, 0, Math.PI * 2); rCtx.fill();
+                    }
+                }
+            }
+        }
+
+        // 3. Траектория движения ровера в 3D/4D
+        if (roverState.trail.length > 1) {
+            rCtx.strokeStyle = 'rgba(0, 255, 157, 0.7)';
+            rCtx.lineWidth = 2.8;
+            rCtx.beginPath();
+            roverState.trail.forEach((pt, idx) => {
+                const p = projectNode4D(pt[0], pt[1], pt[2], pt[3]);
+                if (idx === 0) rCtx.moveTo(p.x, p.y); else rCtx.lineTo(p.x, p.y);
+            });
+            rCtx.stroke();
+            rCtx.lineWidth = 1;
+        }
+
+        // 4. Старт [S] и Финиш [F]
+        const pS = projectNode4D(0, 0, 0, 0);
+        rCtx.fillStyle = '#00ff9d'; rCtx.font = 'bold 13px Courier New';
+        rCtx.fillText('[S]', pS.x - 12, pS.y - 8);
+
+        const tf = DIFFICULTY === 'normal' ? [...TARGET_3D, 0] : TARGET_4D;
+        const pF = projectNode4D(tf[0], tf[1], tf[2], tf[3]);
+        rCtx.fillStyle = '#f0b90b'; rCtx.font = 'bold 13px Courier New';
+        rCtx.fillText('[F ЦЕЛЬ]', pF.x - 24, pF.y - 8);
+
+        // 5. Кратеры / 4D-сингулярности
+        const craters = DIFFICULTY === 'normal' ? CRATERS_3D.map(c => [...c, 0]) : CRATERS_4D;
+        craters.forEach(([cx, cy, cz, cw]) => {
+            const p = projectNode4D(cx, cy, cz, cw);
+            rCtx.fillStyle = '#ff4757'; rCtx.font = 'bold 14px Courier New';
+            rCtx.fillText('✖', p.x - 6, p.y + 5);
+        });
+
+        // 6. Маяки
+        const beacons = DIFFICULTY === 'normal' ? BEACONS_3D.map(b => [...b, 0]) : BEACONS_4D;
+        beacons.forEach(([bx, by, bz, bw], idx) => {
+            const p = projectNode4D(bx, by, bz, bw);
+            const col = roverState.collected.includes(idx) ? '#00ff9d' : '#f0b90b';
+            rCtx.fillStyle = col;
+            rCtx.beginPath(); rCtx.arc(p.x, p.y, 7 * p.s, 0, Math.PI * 2); rCtx.fill();
+            rCtx.font = 'bold 12px Courier New';
+            rCtx.fillText(`⚡M${idx+1}`, p.x + 8, p.y + 4);
+        });
+
+        // 7. Сам Ровер и его 3D-вектор направления
+        const pR = projectNode4D(roverState.x, roverState.y, roverState.z, roverState.w);
+        const dx = [0.45, 0, -0.45, 0][roverState.dir];
+        const dy = [0, 0.45, 0, -0.45][roverState.dir];
+        const pDir = projectNode4D(roverState.x + dx, roverState.y + dy, roverState.z, roverState.w);
+
+        rCtx.fillStyle = '#00ff9d';
+        rCtx.shadowColor = '#00ff9d'; rCtx.shadowBlur = 12;
+        rCtx.beginPath(); rCtx.arc(pR.x, pR.y, 7.5 * pR.s, 0, Math.PI * 2); rCtx.fill();
+        rCtx.shadowBlur = 0;
+
+        rCtx.strokeStyle = '#ffffff'; rCtx.lineWidth = 2.5;
+        rCtx.beginPath(); rCtx.moveTo(pR.x, pR.y); rCtx.lineTo(pDir.x, pDir.y); rCtx.stroke();
+        rCtx.lineWidth = 1;
+
+        document.getElementById('roverTime').textContent = roverState.time;
+        document.getElementById('roverBeacons').textContent = roverState.collected.length;
+        document.getElementById('roverCoordLabel').innerHTML = DIFFICULTY === 'hard'
+            ? `4D: <strong style="color:var(--cyan);">(${roverState.x},${roverState.y},${roverState.z}) W=${roverState.w}</strong>`
+            : `3D: <strong style="color:var(--accent);">(${roverState.x},${roverState.y},${roverState.z})</strong>`;
+    }
+
+    function resetRover() {
+        roverState = { x: 0, y: 0, z: 0, w: 0, dir: 0, time: 0, collected: [], trail: [[0,0,0,0]] };
+        drawRoverMap();
+    }
+
+    document.getElementById('resetRoverBtn').addEventListener('click', () => {
+        if (isSimulating) return;
+        resetRover();
+        document.getElementById('roverMsg').style.color = 'var(--dim)';
+        document.getElementById('roverMsg').textContent = 'Позиция ровера сброшена.';
+    });
+
+    document.getElementById('runRoverBtn').addEventListener('click', () => {
+        if (isSimulating) return;
+        resetRover();
+
+        const activeCmds = programBuffer.filter(c => c !== null);
+        if (activeCmds.length === 0) return;
+
+        let expandedQueue = [];
+        if (CMD_META[activeCmds[0]].isLoop) {
+            const loopCount = CMD_META[activeCmds[0]].count;
+            if (DIFFICULTY === 'hard') {
+                const loopBody = programBuffer.slice(1, 5).filter(c => c !== null);
+                const tailCmds = programBuffer.slice(5, 8).filter(c => c !== null);
+                for (let k = 0; k < loopCount; k++) expandedQueue.push(...loopBody);
+                expandedQueue.push(...tailCmds);
+            } else {
+                const body = activeCmds.slice(1);
+                for (let k = 0; k < loopCount; k++) expandedQueue.push(...body);
+            }
+        } else {
+            expandedQueue = [...activeCmds];
+        }
+
+        let atomicSteps = [];
+        expandedQueue.forEach(cmd => {
+            if (cmd === 'FWD1') atomicSteps.push('STEP');
+            else if (cmd === 'FWD2') atomicSteps.push('STEP', 'STEP');
+            else if (cmd === 'RIGHT') atomicSteps.push('RIGHT');
+            else if (cmd === 'LEFT') atomicSteps.push('LEFT');
+            else if (cmd === 'Z_UP') atomicSteps.push('Z_UP');
+            else if (cmd === 'HYPER') atomicSteps.push('HYPER');
+        });
+
+        isSimulating = true;
+        const msgEl = document.getElementById('roverMsg');
+        msgEl.style.color = 'var(--gold)';
+        msgEl.textContent = 'Выполнение программы...';
+
+        let stepIdx = 0;
+        const timer = setInterval(() => {
+            if (stepIdx >= atomicSteps.length) { clearInterval(timer); finishSimulation(); return; }
+
+            const action = atomicSteps[stepIdx++];
+            roverState.time += 1;
+
+            if (action === 'RIGHT') {
+                roverState.dir = (roverState.dir + 1) % 4;
+            } else if (action === 'LEFT') {
+                roverState.dir = (roverState.dir + 3) % 4;
+            } else if (action === 'Z_UP') {
+                const maxZ = DIFFICULTY === 'normal' ? 4 : 3;
+                roverState.z = (roverState.z + 1) % maxZ;
+                roverState.trail.push([roverState.x, roverState.y, roverState.z, roverState.w]);
+                if (checkCollisionAndBeacons()) { clearInterval(timer); return; }
+            } else if (action === 'HYPER') {
+                roverState.w = 1 - roverState.w;
+                roverState.dir = (roverState.dir + 1) % 4;
+                roverState.trail.push([roverState.x, roverState.y, roverState.z, roverState.w]);
+                if (checkCollisionAndBeacons()) { clearInterval(timer); return; }
+            } else if (action === 'STEP') {
+                const dx = [1, 0, -1, 0][roverState.dir];
+                const dy = [0, 1, 0, -1][roverState.dir];
+                let nx = roverState.x + dx, ny = roverState.y + dy, nz = roverState.z, nw = roverState.w;
+
+                if (DIFFICULTY === 'normal') {
+                    if (nx < 0 || nx > 2 || ny < 0 || ny > 2) {
+                        clearInterval(timer); isSimulating = false;
+                        msgEl.style.color = 'var(--danger)'; msgEl.textContent = 'АВАРИЯ: Выход за грани 3D-куба!';
+                        return;
+                    }
+                } else {
+                    // Неевклидова антиподальная склейка граней Римана: инверсия Z и смена куба W
+                    if (nx > 2) { nx = 0; nw = 1 - nw; nz = 2 - nz; }
+                    else if (nx < 0) { nx = 2; nw = 1 - nw; nz = 2 - nz; }
+                    if (ny > 2) { ny = 0; nw = 1 - nw; nz = 2 - nz; }
+                    else if (ny < 0) { ny = 2; nw = 1 - nw; nz = 2 - nz; }
+                }
+
+                roverState.x = nx; roverState.y = ny; roverState.z = nz; roverState.w = nw;
+                roverState.trail.push([nx, ny, nz, nw]);
+                if (checkCollisionAndBeacons()) { clearInterval(timer); return; }
+            }
+
+            drawRoverMap();
+
+            const reached3D = (DIFFICULTY === 'normal' && roverState.x === TARGET_3D[0] && roverState.y === TARGET_3D[1] && roverState.z === TARGET_3D[2]);
+            const reached4D = (DIFFICULTY === 'hard'   && roverState.x === TARGET_4D[0] && roverState.y === TARGET_4D[1] && roverState.z === TARGET_4D[2] && roverState.w === TARGET_4D[3]);
+            if (reached3D || reached4D) { clearInterval(timer); finishSimulation(); }
+        }, 280);
+    });
+
+    function checkCollisionAndBeacons() {
+        const msgEl = document.getElementById('roverMsg');
+        const craters = DIFFICULTY === 'normal' ? CRATERS_3D.map(c => [...c, 0]) : CRATERS_4D;
+        const beacons = DIFFICULTY === 'normal' ? BEACONS_3D.map(b => [...b, 0]) : BEACONS_4D;
+
+        if (craters.some(([cx, cy, cz, cw]) => cx === roverState.x && cy === roverState.y && cz === roverState.z && cw === roverState.w)) {
+            drawRoverMap(); isSimulating = false;
+            msgEl.style.color = 'var(--danger)'; msgEl.textContent = 'АВАРИЯ: Столкновение с сингулярностью!';
+            return true;
+        }
+        beacons.forEach(([bx, by, bz, bw], idx) => {
+            if (bx === roverState.x && by === roverState.y && bz === roverState.z && bw === roverState.w && !roverState.collected.includes(idx)) {
+                roverState.collected.push(idx);
+            }
+        });
+        return false;
+    }
+
+    function finishSimulation() {
+        isSimulating = false;
+        const msgEl = document.getElementById('roverMsg');
+
+        const reachedNormal = (DIFFICULTY === 'normal' &&
+            roverState.x === TARGET_3D[0] && roverState.y === TARGET_3D[1] && roverState.z === TARGET_3D[2] &&
+            roverState.time <= 20 && roverState.collected.length === 2);
+
+        const reachedHard = (DIFFICULTY === 'hard' &&
+            roverState.x === TARGET_4D[0] && roverState.y === TARGET_4D[1] && roverState.z === TARGET_4D[2] && roverState.w === TARGET_4D[3] &&
+            roverState.time <= 19 && roverState.collected.length === 3);
+
+        if (reachedNormal) {
+            unlockAfterRover(`3D-СПИРАЛЬ ПРОЙДЕНА ЗА ${roverState.time} СЕК!`);
+        } else if (reachedHard) {
+            unlockAfterRover(`4D-ТЕССЕРАКТ РИМАНА ПРОЙДЕН ЗА ${roverState.time} СЕК!`);
+        } else {
+            msgEl.style.color = 'var(--danger)';
+            msgEl.textContent = 'ОШИБКА: Цель [F] не достигнута вовремя со всеми маяками.';
+        }
+    }
+
+    function unlockAfterRover(text) {
+        const msgEl = document.getElementById('roverMsg');
+        msgEl.style.color = 'var(--accent)'; msgEl.textContent = text;
+        document.getElementById('node3').classList.add('solved');
+        document.getElementById('status3').textContent = `ВРЕМЯ: ${roverState.time} СЕК`;
+        const led3 = document.getElementById('led3');
+        if (led3) led3.classList.add('online');
+        document.getElementById('node4').classList.remove('locked');
+        document.getElementById('status4').textContent = 'РЕАКТОР АКТИВЕН';
+    }
+
+    // =========================================================================
+    // УЗЕЛ IV: 3D-КОНСТРУКТОР ИЗОТОПОВ И ИОНОВ (РАЗНЫЕ ЧИСЛА p, n, e!)
+    // =========================================================================
+    const aCanvas = document.getElementById('atom3dCanvas');
+    const aCtx = aCanvas.getContext('2d');
+    let atomP = 1, atomN = 1, atomE = 1, currentNucleoPhase = 1;
+    let rotX = 0.35, rotY = 0.6, isDraggingAtom = false, lastMouseX = 0, lastMouseY = 0, orbitTick = 0;
+
+    const NUCLEO_NORMAL = {
+        pills: ['ФАЗА 1: ГЕЛИЙ-3 (He-3)', 'ФАЗА 2: ИОН УГЛЕРОДА-13 (C⁺)', 'ФАЗА 3: ЖЕЛЕЗО-56 (Fe-56)'],
+        texts: {
+            1: `<p><strong>ФАЗА 1 (Протон-протонный цикл Солнца — Изотоп Гелий-3)</strong>: При слиянии дейтерия с протоном в ядре Солнца рождается лёгкий стабильный изотоп гелия с массовым числом <strong>A = 3</strong>. Соберите его электрически нейтральный атом.</p>`,
+            2: `<p><strong>ФАЗА 2 (Катализатор CNO-цикла — Катион Углерода-13, ¹³C⁺)</strong>: Тяжёлый стабильный изотоп углерода (Z = 6) имеет массовое число <strong>A = 13</strong>. В звёздной плазме он потерял 1 электрон и находится в состоянии однократного положительного иона (<strong>заряд q = +1</strong>). Соберите этот ион.</p>`,
+            3: `<p><strong>ФАЗА 3 (Коллапс Сверхновой — Железо-56)</strong>: Финальный элемент экзотермического синтеза имеет в ядре <strong>26 протонов</strong> и <strong>30 нейтронов</strong>. Соберите его нейтральный атом и запомните его <strong>массовое число (A)</strong>.</p>`
+        }
+    };
+
+    const NUCLEO_HARD = {
+        pills: ['ФАЗА 1: ИОН ЛИТИЯ-7 (Li⁺)', 'ФАЗА 2: ИОН НАТРИЯ-23 (Na²⁺)', 'ФАЗА 3: ИОН КОБАЛЬТА-59 (Co³⁺)'],
+        texts: {
+            1: `<p><strong>ФАЗА 1 (Реликтовый нуклеосинтез — Однократный ион Лития-7, ⁷Li⁺)</strong>: Самый распространенный изотоп третьего элемента Вселенной (Литий, Z = 3) имеет массовое число <strong>A = 7</strong>. В горячей фотосфере он однократно ионизирован (<strong>заряд иона q = +1</strong>). Выставьте числа p⁺, n⁰ и e⁻.</p>`,
+            2: `<p><strong>ФАЗА 2 (Горение углерода — Двукратный ион Натрия-23, ²³Na²⁺)</strong>: Единственный стабильный изотоп Натрия (Z = 11, дающий знаменитый жёлтый спектральный дублет D) имеет массовое число <strong>A = 23</strong>. Соберите его в состоянии двукратно ионизированного катиона (<strong>заряд иона q = +2</strong>).</p>`,
+            3: `<p><strong>ФАЗА 3 (Синтез за железным пиком в Сверхновой — Трёхкратный ион Кобальта-59, ⁵⁹Co³⁺)</strong>: Сразу за железом (Z = 26) в таблице Менделеева следует Кобальт (<strong>Z = 27</strong>), чей единственный стабильный изотоп имеет массовое число <strong>A = 59</strong>. Соберите его корональный ион с <strong>зарядом q = +3</strong> и запомните его <strong>массовое число (A)</strong>.</p>`
+        }
+    };
+
+    function setupNode4() {
+        currentNucleoPhase = 1; atomP = 1; atomN = 1; atomE = 1;
+        const cfg = DIFFICULTY === 'normal' ? NUCLEO_NORMAL : NUCLEO_HARD;
+        [1,2,3].forEach(i => {
+            const p = document.getElementById('pillPhase' + i);
+            p.textContent = cfg.pills[i - 1];
+            p.className = i === 1 ? 'phase-pill active' : 'phase-pill';
+        });
+        updateNucleoUI();
+    }
+
+    function updateNucleoUI() {
+        const cfg = DIFFICULTY === 'normal' ? NUCLEO_NORMAL : NUCLEO_HARD;
+        if (currentNucleoPhase <= 3) document.getElementById('nucleoRiddle').innerHTML = cfg.texts[currentNucleoPhase];
+        document.getElementById('countP').textContent = atomP;
+        document.getElementById('countN').textContent = atomN;
+        document.getElementById('countE').textContent = atomE;
+        document.getElementById('massNumVal').textContent = atomP + atomN;
+        const ch = atomP - atomE;
+        document.getElementById('ionChargeVal').textContent = ch > 0 ? `+${ch}` : ch;
+        document.getElementById('ionChargeVal').style.color = ch >= 0 ? 'var(--accent)' : 'var(--danger)';
+    }
+
+    function modParticle(type, delta) {
+        if (currentNucleoPhase > 3) return;
+        if (type === 'p') atomP = Math.max(1, Math.min(40, atomP + delta));
+        if (type === 'n') atomN = Math.max(0, Math.min(45, atomN + delta));
+        if (type === 'e') atomE = Math.max(1, Math.min(40, atomE + delta));
+        updateNucleoUI();
+    }
+    window.modParticle = modParticle;
+
+    aCanvas.addEventListener('mousedown', e => { isDraggingAtom = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+    window.addEventListener('mouseup', () => { isDraggingAtom = false; });
+    window.addEventListener('mousemove', e => {
+        if (!isDraggingAtom) return;
+        rotY += (e.clientX - lastMouseX) * 0.01; rotX += (e.clientY - lastMouseY) * 0.01;
+        lastMouseX = e.clientX; lastMouseY = e.clientY;
+    });
+
+    function project3D(x, y, z) {
+        let x1 = x * Math.cos(rotY) - z * Math.sin(rotY);
+        let z1 = z * Math.cos(rotY) + x * Math.sin(rotY);
+        let y2 = y * Math.cos(rotX) - z1 * Math.sin(rotX);
+        let z2 = z1 * Math.cos(rotX) + y * Math.sin(rotX);
+        const scale = 320 / (500 + z2);
+        return { x: aCanvas.width / 2 + x1 * scale, y: aCanvas.height / 2 + y2 * scale, z: z2, scale };
+    }
+
+    (function draw3DAtom() {
+        aCtx.clearRect(0, 0, aCanvas.width, aCanvas.height);
+        if (!isDraggingAtom) rotY += 0.008;
+        orbitTick += 0.03;
+
+        const renderQueue = [];
+        const total = atomP + atomN;
+        const nucR = Math.min(34, 6 + Math.pow(total, 0.38) * 5.5);
+        const gAngle = Math.PI * (3 - Math.sqrt(5));
+
+        for (let i = 0; i < total; i++) {
+            const yN = total === 1 ? 0 : 1 - (i / (total - 1)) * 2;
+            const rS = Math.sqrt(Math.max(0, 1 - yN * yN));
+            const th = gAngle * i;
+            const r = nucR * Math.cbrt(((i % 3) + 1) / 3);
+            const p = project3D(Math.cos(th)*rS*r, yN*r, Math.sin(th)*rS*r);
+            const isP = (i % 2 === 0 && i / 2 < atomP) || (i >= atomN * 2);
+            renderQueue.push({ type: isP ? 'proton' : 'neutron', x: p.x, y: p.y, z: p.z, r: Math.max(4.5, 7.5 * p.scale) });
+        }
+
+        const shellCap = [2, 8, 14, 16];
+        let remE = atomE;
+        const tilts = [[0.4, 0.2], [-0.5, 0.6], [0.8, -0.4], [-0.2, -0.8]];
+        for (let s = 0; s < 4 && remE > 0; s++) {
+            const cnt = Math.min(remE, shellCap[s]); remE -= cnt;
+            const oR = 56 + s * 26;
+            const [tX, tZ] = tilts[s];
+
+            // Траектория энергетического уровня (орбитальное кольцо)
+            aCtx.beginPath();
+            aCtx.strokeStyle = 'rgba(0, 255, 157, 0.16)';
+            aCtx.lineWidth = 1;
+            for (let step = 0; step <= 48; step++) {
+                const a = (Math.PI * 2 * step) / 48;
+                let ox = Math.cos(a) * oR, oy = Math.sin(a) * oR * Math.sin(tX), oz = Math.sin(a) * oR * Math.cos(tX);
+                const p = project3D(ox * Math.cos(tZ) - oy * Math.sin(tZ), ox * Math.sin(tZ) + oy * Math.cos(tZ), oz);
+                if (step === 0) aCtx.moveTo(p.x, p.y); else aCtx.lineTo(p.x, p.y);
+            }
+            aCtx.stroke();
+
+            for (let k = 0; k < cnt; k++) {
+                const a = (Math.PI * 2 * k) / cnt + orbitTick * (1.4 - s * 0.2);
+                let ox = Math.cos(a) * oR, oy = Math.sin(a) * oR * Math.sin(tX), oz = Math.sin(a) * oR * Math.cos(tX);
+                const p = project3D(ox * Math.cos(tZ) - oy * Math.sin(tZ), ox * Math.sin(tZ) + oy * Math.cos(tZ), oz);
+                renderQueue.push({ type: 'electron', x: p.x, y: p.y, z: p.z, r: Math.max(3, 4.5 * p.scale) });
+            }
+        }
+
+        renderQueue.sort((a, b) => b.z - a.z);
+        renderQueue.forEach(it => {
+            aCtx.beginPath(); aCtx.arc(it.x, it.y, it.r, 0, Math.PI * 2);
+            aCtx.fillStyle = it.type === 'proton' ? '#ff4757' : (it.type === 'neutron' ? '#3b82f6' : '#00ff9d');
+            aCtx.fill();
+        });
+        requestAnimationFrame(draw3DAtom);
+    })();
+
+    document.getElementById('synthBtn').addEventListener('click', () => {
+        const msgEl = document.getElementById('nucleoMsg');
+        // Проверка конфигураций (в сложном режиме все 3 числа p, n, e разные!)
+        const p1Ok = DIFFICULTY === 'normal' ? (atomP===2 && atomN===1 && atomE===2)   : (atomP===3  && atomN===4  && atomE===2);
+        const p2Ok = DIFFICULTY === 'normal' ? (atomP===6 && atomN===7 && atomE===5)   : (atomP===11 && atomN===12 && atomE===9);
+        const p3Ok = DIFFICULTY === 'normal' ? (atomP===26 && atomN===30 && atomE===26): (atomP===27 && atomN===32 && atomE===24);
+
+        if (currentNucleoPhase === 1 && p1Ok) {
+            document.getElementById('pillPhase1').className = 'phase-pill done';
+            document.getElementById('pillPhase2').className = 'phase-pill active';
+            currentNucleoPhase = 2; updateNucleoUI();
+            msgEl.style.color = 'var(--accent)'; msgEl.textContent = 'ФАЗА 1 ПОДТВЕРЖДЕНА! Переход к Фазе 2...';
+        } else if (currentNucleoPhase === 2 && p2Ok) {
+            document.getElementById('pillPhase2').className = 'phase-pill done';
+            document.getElementById('pillPhase3').className = 'phase-pill active';
+            currentNucleoPhase = 3; updateNucleoUI();
+            msgEl.style.color = 'var(--accent)'; msgEl.textContent = 'ФАЗА 2 ПОДТВЕРЖДЕНА! Переход к Фазе 3...';
+        } else if (currentNucleoPhase === 3 && p3Ok) {
+            document.getElementById('pillPhase3').className = 'phase-pill done';
+            currentNucleoPhase = 4;
+            const massA = atomP + atomN;
+            msgEl.style.color = 'var(--accent)'; msgEl.textContent = `СИНТЕЗ ЗАВЕРШЕН! Массовое число A = ${massA}.`;
+            document.getElementById('node4').classList.add('solved');
+            document.getElementById('status4').textContent = `ИЗОТОП A = ${massA}`;
+            const led4 = document.getElementById('led4');
+            if (led4) led4.classList.add('online');
+            const hudCore = document.getElementById('hudCore');
+            if (hudCore) {
+                hudCore.textContent = `A = ${massA} ГОТОВ`;
+                hudCore.style.color = 'var(--accent)';
+            }
+            document.getElementById('node5').classList.remove('locked');
+            document.getElementById('status5').textContent = 'ГОТОВ К СИНТЕЗУ';
+        } else {
+            msgEl.style.color = 'var(--danger)';
+            msgEl.textContent = 'ОШИБКА: Проверьте число протонов, нейтронов и заряд иона (e⁻ = p⁺ − q).';
+        }
+    });
+
+    // =========================================================================
+    // УЗЕЛ V: СПЕКТРАЛЬНАЯ ДИАГНОСТИКА ЗВЁЗД (БЕЗ БУКВ КЛАССОВ В СЛОЖНОМ РЕЖИМЕ)
+    // =========================================================================
+    const STARS_NORMAL = [
+        { letter: 'I', desc: 'Спектральный<br><strong>Класс A</strong>', bg: 'radial-gradient(circle at 35% 35%, #ffffff, #d8ecff 60%, #8ab8e6)', sh: 'rgba(232,244,255,0.85)' },
+        { letter: 'N', desc: 'Спектральный<br><strong>Класс M</strong>', bg: 'radial-gradient(circle at 35% 35%, #ffaa99, #ff5e4d 60%, #b32414)', sh: 'rgba(255,94,77,0.85)' },
+        { letter: 'O', desc: 'Спектральный<br><strong>Класс O</strong>', bg: 'radial-gradient(circle at 35% 35%, #d6e8ff, #5b9bff 60%, #1d56b8)', sh: 'rgba(91,155,255,0.95)' },
+        { letter: 'O', desc: 'Спектральный<br><strong>Класс G</strong>', bg: 'radial-gradient(circle at 35% 35%, #fff9d6, #ffe46b 60%, #d49b15)', sh: 'rgba(255,228,107,0.85)' },
+        { letter: 'R', desc: 'Спектральный<br><strong>Класс B</strong>', bg: 'radial-gradient(circle at 35% 35%, #f0f7ff, #9ec4ff 60%, #4b7fd6)', sh: 'rgba(158,196,255,0.9)' }
+    ];
+
+    const STARS_HARD = [
+        { letter: 'G', desc: 'Умеренные линии H, появляются ионы Fe II, масса 1.4 M☉', bg: 'radial-gradient(circle at 35% 35%, #ffffff, #fff4d6 60%, #d4c085)', sh: 'rgba(255,244,214,0.85)' },
+        { letter: 'S', desc: 'Полосы оксида титана (TiO), полная конвекция недр', bg: 'radial-gradient(circle at 35% 35%, #ffaa99, #ff5e4d 60%, #b32414)', sh: 'rgba(255,94,77,0.85)' },
+        { letter: 'C', desc: 'Линии ионизированного гелия (He II), выгорает за <10 млн лет', bg: 'radial-gradient(circle at 35% 35%, #d6e8ff, #5b9bff 60%, #1d56b8)', sh: 'rgba(91,155,255,0.95)' },
+        { letter: 'U', desc: 'Сильные линии нейтральных металлов, масса 0.7 M☉', bg: 'radial-gradient(circle at 35% 35%, #ffd8a8, #ffa94d 60%, #c96612)', sh: 'rgba(255,169,77,0.85)' },
+        { letter: 'Y', desc: 'Абсолютный максимум водородных линий Бальмера (Hα/Hβ), B−V = 0', bg: 'radial-gradient(circle at 35% 35%, #ffffff, #d8ecff 60%, #8ab8e6)', sh: 'rgba(232,244,255,0.85)' },
+        { letter: 'N', desc: 'Интенсивный дублет Ca II (H и K), звезда типа Солнца (1.0 M☉)', bg: 'radial-gradient(circle at 35% 35%, #fff9d6, #ffe46b 60%, #d49b15)', sh: 'rgba(255,228,107,0.85)' }
+    ];
+
+    function setupNode5() {
+        document.getElementById('riddleNode5').innerHTML = DIFFICULTY === 'normal'
+            ? `<p>Сформируйте ключ доступа в формате: <strong>СЛОВО-ЧИСЛО</strong>.</p>
+               <p><strong>ЧАСТЬ 1 [СЛОВО]</strong>: Выстройте звёзды слева направо строго <strong>от самого ГОРЯЧЕГО спектрального класса к самому ХОЛОДНОМУ</strong> согласно Гарвардской классификации.</p>`
+            : `<p>Сформируйте ключ доступа в формате: <strong>СЛОВО-ЧИСЛО</strong>.</p>
+               <p><strong>ЧАСТЬ 1 [СЛОВО]</strong>: Определите спектральные классы 6 звёзд по их <strong>линиям поглощения в спектре и физическим характеристикам</strong>, затем выстройте их в порядке <strong>возрастания времени жизни на главной последовательности</strong> (от самых массивных и короткоживущих гигантов к самым долгоживущим карликам).</p>`;
+
+        const fDesc = document.getElementById('formulaDesc');
+        if (fDesc) {
+            fDesc.innerHTML = 'ЧИСЛО = Параметр 1 + Параметр 2 + Параметр 3 (Узел I) + Сдвиг ротора + Слот I + Слот II + Слот III + Слот IV + Время ровера + Массовое число (A) изотопа Фазы 3';
+        }
+
+        const strip = document.getElementById('starStrip');
+        strip.innerHTML = '';
+        const list = DIFFICULTY === 'normal' ? STARS_NORMAL : STARS_HARD;
+        let firstCard = null;
+
+        list.forEach(st => {
+            const card = document.createElement('div');
+            card.className = 'star-card';
+            card.innerHTML = `
+                <div class="star-dot" style="background:${st.bg}; box-shadow: 0 0 15px ${st.sh};"></div>
+                <div class="star-letter">${st.letter}</div>
+                <div class="star-info">${st.desc}</div>
+            `;
+            card.addEventListener('click', () => {
+                if (!firstCard) { firstCard = card; card.classList.add('active-swap'); }
+                else if (firstCard === card) { firstCard.classList.remove('active-swap'); firstCard = null; }
+                else {
+                    const tmp = firstCard.innerHTML; firstCard.innerHTML = card.innerHTML; card.innerHTML = tmp;
+                    firstCard.classList.remove('active-swap'); firstCard = null;
+                }
+            });
+            strip.appendChild(card);
+        });
+    }
+
+    document.getElementById('verifyBtn').addEventListener('click', () => {
+        const rawKey = document.getElementById('finalKeyInput').value.trim().toUpperCase();
+        const err = document.getElementById('errorMsg');
+
+        let wSum = 0, sSum = 0;
+        for (let i = 0; i < rawKey.length; i++) {
+            const c = rawKey.charCodeAt(i);
+            wSum += c * (i + 1);
+            sSum += c;
+        }
+
+        // Хэш-проверка: ORION-506 (Легкий) | CYGNUS-492 (Сложный)
+        const okNormal = (DIFFICULTY === 'normal' && rawKey.length === 9  && wSum === 2679 && sSum === 591 && rawKey.charCodeAt(0) === 79);
+        const okHard   = (DIFFICULTY === 'hard'   && rawKey.length === 10 && wSum === 3437 && sSum === 677 && rawKey.charCodeAt(0) === 67);
+
+        if (okNormal || okHard) {
+            err.style.display = 'none';
+            document.getElementById('node5').classList.add('solved');
+            document.getElementById('status5').textContent = 'КЛЮЧ ПРИНЯТ';
+            const led5 = document.getElementById('led5');
+            if (led5) led5.classList.add('online');
+            document.getElementById('confirmedKey').textContent = rawKey;
+            document.getElementById('successModal').style.display = 'block';
+        } else {
+            err.style.display = 'block';
+        }
+    });
+
+    selectDifficulty('normal');
+    document.getElementById('diffOverlay').style.display = 'flex';
+</script>
+</body>
+</html>

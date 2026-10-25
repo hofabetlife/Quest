@@ -1,0 +1,6 @@
+{
+  "name": "3301: Among Space — Космический Квест",
+  "description": "Интерактивная космическая карта-квест в стиле Among Us с авиационными и астрономическими задачами и эвакуационным шлюзом.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

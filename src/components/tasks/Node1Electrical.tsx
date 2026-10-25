@@ -1,13 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Difficulty } from '../../types.ts';
-import { evaluateNode1SliderCommit, Node1Params } from '../../game/questLogic.ts';
+import {
+  evaluateNode1Task3Attempt,
+  getExpectedNode1Params,
+  isNode1AllCorrect,
+  NODE1_TASK3_MAX,
+  NODE1_TASK3_MAX_ATTEMPTS,
+  NODE1_TASK3_MIN,
+  NODE1_TASK3_STEP,
+  Node1Params,
+} from '../../game/questLogic.ts';
 import { sound } from '../../utils/audio.ts';
-import { CheckCircle2, Zap, AlertTriangle, X, Download } from 'lucide-react';
+import { CheckCircle2, Zap, AlertTriangle, X, Download, ShieldAlert } from 'lucide-react';
 
 interface Node1Props {
   difficulty: Difficulty;
   isSolved: boolean;
   onSolve: (params: { u: number; f: number; i: number }) => void;
+  onUnsolve?: (params: { u: number; f: number; i: number }) => void;
   onClose: () => void;
 }
 
@@ -15,18 +25,40 @@ export const Node1Electrical: React.FC<Node1Props> = ({
   difficulty,
   isSolved,
   onSolve,
+  onUnsolve,
   onClose,
 }) => {
-  const [sliderU, setSliderU] = useState<number>(50);
-  const [sliderF, setSliderF] = useState<number>(100);
-  const [sliderI, setSliderI] = useState<number>(40);
-  const [committedParams, setCommittedParams] = useState<Node1Params>({ u: 50, f: 100, i: 40 });
+  const initialValues = isSolved
+    ? getExpectedNode1Params(difficulty)
+    : { u: 50, f: 100, i: 40 };
+
+  const [sliderU, setSliderU] = useState<number>(initialValues.u);
+  const [sliderF, setSliderF] = useState<number>(initialValues.f);
+  const [sliderI, setSliderI] = useState<number>(initialValues.i);
+  const [committedParams, setCommittedParams] = useState<Node1Params>(initialValues);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [solved, setSolved] = useState<boolean>(isSolved);
   const [diagramDataUrl, setDiagramDataUrl] = useState<string>('');
+  const [task3AttemptsLeft, setTask3AttemptsLeft] = useState<number>(NODE1_TASK3_MAX_ATTEMPTS);
+  const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const phaseRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
+
+  // Dynamic check: green ONLY when all 3 sliders are currently at the right values and committed!
+  const allThreeCorrect = isNode1AllCorrect(
+    { u: sliderU, f: sliderF, i: sliderI },
+    committedParams,
+    isDragging,
+    difficulty
+  );
 
   const fname =
     difficulty === 'hard'
@@ -82,16 +114,35 @@ export const Node1Electrical: React.FC<Node1Props> = ({
     setDiagramDataUrl(dataUrl);
   }, [difficulty, fname]);
 
-  // Only commit and validate parameters when the user RELEASES the slider!
+  // Commit and validate parameters when the user RELEASES the slider or commits an input.
+  // Includes anti-bruteforce relay protection on Task 3 (step=1, max 3 wrong attempts before reset + lockout).
   const handleCommitSliders = (uVal = sliderU, fVal = sliderF, iVal = sliderI) => {
+    if (lockoutSeconds > 0) return;
     setIsDragging(false);
-    const draft = { u: uVal, f: fVal, i: iVal };
-    const res = evaluateNode1SliderCommit(draft, committedParams, true, difficulty);
+    const clampedI = Math.max(NODE1_TASK3_MIN, Math.min(NODE1_TASK3_MAX, Math.round(iVal || NODE1_TASK3_MIN)));
+    const draft = { u: uVal, f: fVal, i: clampedI };
+    const res = evaluateNode1Task3Attempt(committedParams, draft, difficulty, task3AttemptsLeft);
+
     setCommittedParams(res.nextCommitted);
-    if (res.solved && !solved) {
-      setSolved(true);
+    setTask3AttemptsLeft(res.attemptsLeft);
+
+    if (res.trippedProtection) {
+      sound.playWarn();
+      setSliderU(res.nextCommitted.u);
+      setSliderF(res.nextCommitted.f);
+      setSliderI(res.nextCommitted.i);
+      setLockoutSeconds(6);
+      if (onUnsolve) {
+        onUnsolve(res.nextCommitted);
+      }
+      return;
+    }
+
+    if (res.solved) {
       sound.playTaskSuccess();
       onSolve(res.nextCommitted);
+    } else if (onUnsolve) {
+      onUnsolve(res.nextCommitted);
     }
   };
 
@@ -131,13 +182,13 @@ export const Node1Electrical: React.FC<Node1Props> = ({
 
       // Oscilloscope Trace
       ctx.beginPath();
-      ctx.strokeStyle = solved ? '#00ff9d' : '#ff4757';
+      ctx.strokeStyle = allThreeCorrect ? '#00ff9d' : '#ff4757';
       ctx.lineWidth = 2.5;
-      ctx.shadowColor = solved ? '#00ff9d' : '#ff4757';
+      ctx.shadowColor = allThreeCorrect ? '#00ff9d' : '#ff4757';
       ctx.shadowBlur = 8;
 
       for (let x = 0; x < canvas.width; x++) {
-        const noise = solved ? 0 : Math.sin(x * 0.25 - phaseRef.current * 2) * 8;
+        const noise = allThreeCorrect ? 0 : Math.sin(x * 0.25 - phaseRef.current * 2) * 8;
         const y =
           canvas.height / 2 +
           Math.sin(x * (committedParams.f / 4000) + phaseRef.current) * (committedParams.u / 4.2) +
@@ -156,7 +207,7 @@ export const Node1Electrical: React.FC<Node1Props> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [solved, committedParams]);
+  }, [allThreeCorrect, committedParams]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
@@ -170,8 +221,8 @@ export const Node1Electrical: React.FC<Node1Props> = ({
                 I. РАСЧЁТ ЭЛЕКТРОСИСТЕМЫ САМОЛЁТА BOEING 737 NG
               </h2>
               <p className="text-xs text-slate-400">
-                {solved
-                  ? 'ШИНЫ СИНХРОНИЗИРОВАНЫ'
+                {allThreeCorrect
+                  ? 'ШИНЫ СИНХРОНИЗИРОВАНЫ (ВСЕ 3 ПАРАМЕТРА ВЕРНЫ)'
                   : 'ТРЕБУЕТСЯ РАСЧЁТ НАГРУЗКИ (ОТПУСТИТЕ ПОЛЗУНОК ДЛЯ ФИКСАЦИИ ОТВЕТА)'}
               </p>
             </div>
@@ -265,30 +316,51 @@ export const Node1Electrical: React.FC<Node1Props> = ({
 
           {/* Live Oscilloscope Display */}
           <div className="relative bg-black border border-slate-800 rounded p-2 flex flex-col justify-between">
-            <div className="text-[10px] text-emerald-400 font-mono tracking-widest flex items-center justify-between mb-1 px-1">
+            <div
+              className={`text-[10px] font-mono tracking-widest flex items-center justify-between mb-1 px-1 ${
+                allThreeCorrect ? 'text-emerald-400' : 'text-amber-300'
+              }`}
+            >
               <span className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${solved ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'}`}></span>
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    allThreeCorrect ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'
+                  }`}
+                ></span>
                 <span>АСКУ // ОСЦИЛЛОГРАММА ШИНЫ B737</span>
               </span>
               <span className="text-[10px] text-slate-500">
-                {isDragging ? 'ОЖИДАНИЕ ФИКСАЦИИ...' : `ЗАФИКСИРОВАНО: ${committedParams.u}/${committedParams.f}/${committedParams.i}`}
+                {isDragging
+                  ? 'ОЖИДАНИЕ ФИКСАЦИИ...'
+                  : `ЗАФИКСИРОВАНО: ${committedParams.u}/${committedParams.f}/${committedParams.i}`}
               </span>
             </div>
             <canvas ref={canvasRef} width={480} height={96} className="w-full h-24 rounded bg-slate-950" />
           </div>
         </div>
 
-        {/* Sliders (commit ONLY on release: pointerUp / mouseUp / touchEnd / keyUp / blur) */}
+        {/* Sliders: Values & cards turn green ONLY when ALL THREE answers are currently correct! */}
         <div className="space-y-2.5 mb-3">
-          <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+          <div
+            className={`p-2.5 rounded border transition-colors ${
+              allThreeCorrect
+                ? 'bg-emerald-950/25 border-emerald-500/60'
+                : 'bg-slate-900/60 border-slate-800'
+            }`}
+          >
             <div className="flex justify-between text-xs mb-1">
               <label htmlFor="node1-slider-u" className="text-slate-300">
                 {difficulty === 'normal'
                   ? '1. Фазный ток генератора I_фаз (А)'
                   : '1. Ток батареи 24В на входе инвертора I_АКБ (А)'}
               </label>
-              <span className="text-emerald-400 font-bold text-sm">
-                {sliderU}
+              <span
+                data-testid="node1-val-u"
+                className={`font-bold text-sm transition-colors ${
+                  allThreeCorrect ? 'text-emerald-400' : 'text-amber-300'
+                }`}
+              >
+                {allThreeCorrect ? `✓ ${sliderU}` : sliderU}
                 {sliderU !== committedParams.u && (
                   <span className="ml-1.5 text-[10px] text-amber-400 font-normal">
                     (отпустите для фиксации)
@@ -316,19 +388,32 @@ export const Node1Electrical: React.FC<Node1Props> = ({
               onTouchEnd={() => handleCommitSliders(sliderU, sliderF, sliderI)}
               onKeyUp={() => handleCommitSliders(sliderU, sliderF, sliderI)}
               onBlur={() => handleCommitSliders(sliderU, sliderF, sliderI)}
-              className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none"
+              className={`w-full cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none ${
+                allThreeCorrect ? 'accent-emerald-400' : 'accent-amber-500'
+              }`}
             />
           </div>
 
-          <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
+          <div
+            className={`p-2.5 rounded border transition-colors ${
+              allThreeCorrect
+                ? 'bg-emerald-950/25 border-emerald-500/60'
+                : 'bg-slate-900/60 border-slate-800'
+            }`}
+          >
             <div className="flex justify-between text-xs mb-1">
               <label htmlFor="node1-slider-f" className="text-slate-300">
                 {difficulty === 'normal'
                   ? '2. Скорость ротора при p=2 (об/с)'
                   : '2. Полный фазный ток IDG при 41.4 кВт и cos φ=0.8 (А)'}
               </label>
-              <span className="text-emerald-400 font-bold text-sm">
-                {sliderF}
+              <span
+                data-testid="node1-val-f"
+                className={`font-bold text-sm transition-colors ${
+                  allThreeCorrect ? 'text-emerald-400' : 'text-amber-300'
+                }`}
+              >
+                {allThreeCorrect ? `✓ ${sliderF}` : sliderF}
                 {sliderF !== committedParams.f && (
                   <span className="ml-1.5 text-[10px] text-amber-400 font-normal">
                     (отпустите для фиксации)
@@ -356,19 +441,51 @@ export const Node1Electrical: React.FC<Node1Props> = ({
               onTouchEnd={() => handleCommitSliders(sliderU, sliderF, sliderI)}
               onKeyUp={() => handleCommitSliders(sliderU, sliderF, sliderI)}
               onBlur={() => handleCommitSliders(sliderU, sliderF, sliderI)}
-              className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none"
+              className={`w-full cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none ${
+                allThreeCorrect ? 'accent-emerald-400' : 'accent-amber-500'
+              }`}
             />
           </div>
 
-          <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
-            <div className="flex justify-between text-xs mb-1">
-              <label htmlFor="node1-slider-i" className="text-slate-300">
-                {difficulty === 'normal'
-                  ? '3. Уставка защиты выпрямителя TR3 (А)'
-                  : '3. Код контроллера BTB (K_BTB)'}
-              </label>
-              <span className="text-emerald-400 font-bold text-sm">
-                {sliderI}
+          <div
+            className={`p-2.5 rounded border transition-colors ${
+              lockoutSeconds > 0
+                ? 'bg-rose-950/30 border-rose-500/60'
+                : allThreeCorrect
+                  ? 'bg-emerald-950/25 border-emerald-500/60'
+                  : 'bg-slate-900/60 border-slate-800'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs mb-1.5">
+              <div className="flex items-center gap-2">
+                <label htmlFor="node1-slider-i" className="text-slate-300">
+                  {difficulty === 'normal'
+                    ? '3. Уставка защиты выпрямителя TR3 (А)'
+                    : '3. Код контроллера BTB (K_BTB)'}
+                </label>
+                <span
+                  data-testid="node1-task3-attempts"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                    lockoutSeconds > 0
+                      ? 'bg-rose-950/80 border-rose-500 text-rose-300 font-bold'
+                      : task3AttemptsLeft === 1
+                        ? 'bg-rose-950/50 border-rose-500/50 text-rose-300'
+                        : 'bg-slate-950 border-slate-700 text-slate-400'
+                  }`}
+                >
+                  {lockoutSeconds > 0
+                    ? `БЛОКИРОВКА ПЕРЕБОРА: ${lockoutSeconds} с`
+                    : `Защита от перебора: ${task3AttemptsLeft}/${NODE1_TASK3_MAX_ATTEMPTS} поп.`}
+                </span>
+              </div>
+
+              <span
+                data-testid="node1-val-i"
+                className={`font-bold text-sm transition-colors ${
+                  allThreeCorrect ? 'text-emerald-400' : 'text-amber-300'
+                }`}
+              >
+                {allThreeCorrect ? `✓ ${sliderI}` : sliderI}
                 {sliderI !== committedParams.i && (
                   <span className="ml-1.5 text-[10px] text-amber-400 font-normal">
                     (отпустите для фиксации)
@@ -379,9 +496,10 @@ export const Node1Electrical: React.FC<Node1Props> = ({
             <input
               id="node1-slider-i"
               type="range"
-              min="5"
-              max="200"
-              step="5"
+              min={NODE1_TASK3_MIN}
+              max={NODE1_TASK3_MAX}
+              step={NODE1_TASK3_STEP}
+              disabled={lockoutSeconds > 0}
               value={sliderI}
               onPointerDown={() => setIsDragging(true)}
               onMouseDown={() => setIsDragging(true)}
@@ -396,15 +514,28 @@ export const Node1Electrical: React.FC<Node1Props> = ({
               onTouchEnd={() => handleCommitSliders(sliderU, sliderF, sliderI)}
               onKeyUp={() => handleCommitSliders(sliderU, sliderF, sliderI)}
               onBlur={() => handleCommitSliders(sliderU, sliderF, sliderI)}
-              className="w-full accent-amber-500 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none"
+              className={`w-full cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none disabled:opacity-50 ${
+                allThreeCorrect ? 'accent-emerald-400' : 'accent-amber-500'
+              }`}
             />
+            {lockoutSeconds > 0 && (
+              <div
+                data-testid="node1-lockout-banner"
+                className="mt-1.5 flex items-center gap-1.5 text-[11px] text-rose-300 bg-rose-950/60 border border-rose-500/40 px-2 py-1 rounded"
+              >
+                <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>
+                  Сработала защита BTCU от подбора параметра №3! Значения сброшены ({lockoutSeconds} с). Изучите схему шины B737 BTCU.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Status / Output Result */}
         <div className="flex items-center justify-between border-t border-slate-800 pt-3">
           <div className="flex items-center gap-2">
-            {solved ? (
+            {allThreeCorrect ? (
               <span className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                 ШИНЫ СИНХРОНИЗИРОВАНЫ // ЗАПИСАНО В ЖУРНАЛ
@@ -420,12 +551,12 @@ export const Node1Electrical: React.FC<Node1Props> = ({
           <button
             onClick={onClose}
             className={`px-5 py-2 rounded text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-              solved
+              allThreeCorrect
                 ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
             }`}
           >
-            {solved ? 'Зафиксировать и выйти' : 'Закрыть терминал'}
+            {allThreeCorrect ? 'Зафиксировать и выйти' : 'Закрыть терминал'}
           </button>
         </div>
       </div>

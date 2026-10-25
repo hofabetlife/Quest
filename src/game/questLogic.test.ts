@@ -17,6 +17,13 @@ import {
   evaluateDoorCardSwipe,
   checkDoorBreakers,
   checkDoorShields,
+  isNode1AllCorrect,
+  evaluateNode1Task3Attempt,
+  NODE1_TASK3_STEP,
+  NODE1_TASK3_MAX_ATTEMPTS,
+  getRoverSlotBudget,
+  expandRoverStructuredProgram,
+  simulateRover,
 } from './questLogic.ts';
 import {
   PLAYER_SPAWN,
@@ -334,9 +341,87 @@ test('Node 1 electrical check logic and commit-on-release slider behavior', () =
   assert.equal(onRelease.solved, true);
   assert.deepEqual(onRelease.nextCommitted, norm);
 
+  // isNode1AllCorrect is true ONLY when all 3 values are currently correct and not dragging
+  assert.equal(isNode1AllCorrect(norm, norm, false, 'normal'), true);
+  // If user subsequently drags a slider away from the correct value, green highlight immediately turns off:
+  assert.equal(isNode1AllCorrect({ u: 105, f: 200, i: 65 }, norm, true, 'normal'), false);
+  // If user releases a slider on a wrong value, green highlight stays off:
+  const wrongAfter = { u: 105, f: 200, i: 65 };
+  assert.equal(isNode1AllCorrect(wrongAfter, wrongAfter, false, 'normal'), false);
+
   const hard = getExpectedNode1Params('hard');
   assert.equal(checkNode1(hard, 'hard'), true);
   assert.equal(checkNode1(norm, 'hard'), false);
+  assert.equal(isNode1AllCorrect(hard, hard, false, 'hard'), true);
+  assert.equal(isNode1AllCorrect({ u: 80, f: 150, i: 105 }, hard, false, 'hard'), false);
+
+  // Task 3 anti-bruteforce: step=1 and 3 wrong changes on Task 3 trip protection & reset
+  assert.equal(NODE1_TASK3_STEP, 1);
+  assert.equal(NODE1_TASK3_MAX_ATTEMPTS, 3);
+
+  const attempt1 = evaluateNode1Task3Attempt(
+    { u: 100, f: 200, i: 40 },
+    { u: 100, f: 200, i: 51 },
+    'normal',
+    3
+  );
+  assert.equal(attempt1.solved, false);
+  assert.equal(attempt1.attemptsLeft, 2);
+  assert.equal(attempt1.trippedProtection, false);
+
+  const attempt2 = evaluateNode1Task3Attempt(
+    attempt1.nextCommitted,
+    { u: 100, f: 200, i: 52 },
+    'normal',
+    attempt1.attemptsLeft
+  );
+  assert.equal(attempt2.solved, false);
+  assert.equal(attempt2.attemptsLeft, 1);
+  assert.equal(attempt2.trippedProtection, false);
+
+  const attempt3 = evaluateNode1Task3Attempt(
+    attempt2.nextCommitted,
+    { u: 100, f: 200, i: 53 },
+    'normal',
+    attempt2.attemptsLeft
+  );
+  assert.equal(attempt3.solved, false);
+  assert.equal(attempt3.trippedProtection, true);
+  assert.deepEqual(attempt3.nextCommitted, { u: 50, f: 100, i: 40 });
+});
+
+test('Node 3 cell budget (6 in normal pure loop, 8 in hard with 4 inside + 3 outside) and simulation', () => {
+  const normalBudget = getRoverSlotBudget('normal');
+  assert.equal(normalBudget.totalCells, 6);
+  assert.equal(normalBudget.loopBodyCells, 5); // 1 loop cell + 5 loop body cells = 6 cells total
+  assert.equal(normalBudget.outsideCells, 0); // no outside-loop section in normal mode
+
+  const hardBudget = getRoverSlotBudget('hard');
+  assert.equal(hardBudget.totalCells, 8);
+  assert.equal(hardBudget.loopBodyCells, 4); // 4 cells inside loop
+  assert.equal(hardBudget.outsideCells, 3); // 3 cells outside loop (1 + 4 + 3 = 8 cells total)
+
+  // Normal mode solved by LOOP3 + 5 commands inside loop (6 cells total including loop):
+  const normalExpanded = expandRoverStructuredProgram('LOOP3', [
+    'FWD2',
+    'Z_UP',
+    'RIGHT',
+    'FWD2',
+    'RIGHT',
+  ]);
+  const normalSim = simulateRover(normalExpanded, 'normal');
+  assert.equal(normalSim.success, true);
+  assert.equal(normalSim.time, 20);
+
+  // Hard mode solved by LOOP3 + 4 commands inside loop + 3 commands outside loop:
+  const hardExpanded = expandRoverStructuredProgram(
+    'LOOP3',
+    ['FWD2', 'Z_UP', 'HYPER', 'FWD1'],
+    ['LEFT', 'FWD2', 'HYPER']
+  );
+  const hardSim = simulateRover(hardExpanded, 'hard');
+  assert.equal(hardSim.success, true);
+  assert.equal(hardSim.time, 19);
 });
 
 test('Node 2 Caesar decipher and slot breakers check', () => {

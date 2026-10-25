@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Difficulty } from '../../types.ts';
+import { getRoverSlotBudget } from '../../game/questLogic.ts';
 import { sound } from '../../utils/audio.ts';
 import { Bot, CheckCircle2, AlertTriangle, X, Play, RotateCcw } from 'lucide-react';
 
@@ -26,14 +27,14 @@ interface CmdMeta {
 }
 
 const CMD_DICT: Record<string, CmdMeta> = {
-  LOOP2: { label: '⟳ ЦИКЛ ×2 (0 с)', isLoop: true, count: 2 },
-  LOOP3: { label: '⟳ ЦИКЛ ×3 (0 с)', isLoop: true, count: 3 },
+  LOOP2: { label: '[×2] ЦИКЛ ×2 (0 с)', isLoop: true, count: 2 },
+  LOOP3: { label: '[×3] ЦИКЛ ×3 (0 с)', isLoop: true, count: 3 },
   FWD1: { label: '↑ ВПЕРЕД 1 (1 с)' },
-  FWD2: { label: '⇈ ВПЕРЕД 2 (2 с)' },
-  RIGHT: { label: '↻ ВПРАВО XY 90° (1 с)' },
-  LEFT: { label: '↺ ВЛЕВО XY 90° (1 с)' },
+  FWD2: { label: '↑↑ ВПЕРЕД 2 (2 с)' },
+  RIGHT: { label: '→ ВПРАВО XY 90° (1 с)' },
+  LEFT: { label: '← ВЛЕВО XY 90° (1 с)' },
   Z_UP: { label: '▲ ПОДЪЕМ Z (+1) (1 с)' },
-  HYPER: { label: '🌀 4D-ПЕРЕХОД W (1 с)', isHyper: true },
+  HYPER: { label: '◆ 4D-ПЕРЕХОД W (1 с)', isHyper: true },
 };
 
 export const Node3RoverNav: React.FC<Node3Props> = ({
@@ -42,10 +43,23 @@ export const Node3RoverNav: React.FC<Node3Props> = ({
   onSolve,
   onClose,
 }) => {
-  const slotCount = difficulty === 'hard' ? 8 : 6;
-  const [programBuffer, setProgramBuffer] = useState<(string | null)[]>(
-    new Array(slotCount).fill(null)
+  const { totalCells, loopBodyCells, outsideCells } = getRoverSlotBudget(difficulty);
+
+  const [loopMode, setLoopMode] = useState<'NONE' | 'LOOP2' | 'LOOP3'>('NONE');
+  const [insertTarget, setInsertTarget] = useState<'INSIDE' | 'OUTSIDE'>('INSIDE');
+  const [cmdBuffer, setCmdBuffer] = useState<(string | null)[]>(
+    new Array(totalCells).fill(null)
   );
+  const [outsideBuffer, setOutsideBuffer] = useState<(string | null)[]>(
+    new Array(outsideCells).fill(null)
+  );
+
+  useEffect(() => {
+    setCmdBuffer(new Array(totalCells).fill(null));
+    setOutsideBuffer(new Array(outsideCells).fill(null));
+    setLoopMode('NONE');
+    setInsertTarget('INSIDE');
+  }, [difficulty, totalCells, outsideCells]);
 
   const [roverState, setRoverState] = useState({
     x: 0,
@@ -274,23 +288,135 @@ export const Node3RoverNav: React.FC<Node3Props> = ({
     rotRef.current.isDragging = false;
   };
 
+  const handleSelectLoopMode = (mode: 'NONE' | 'LOOP2' | 'LOOP3') => {
+    if (isSimulating) return;
+    sound.playTerminalClick();
+    setLoopMode((prev) => {
+      const nextMode = prev === mode ? 'NONE' : mode;
+      return nextMode;
+    });
+    setInsertTarget('INSIDE');
+  };
+
   const addCmd = (cmd: string) => {
     if (isSimulating) return;
     sound.playTerminalClick();
-    const emptyIdx = programBuffer.indexOf(null);
-    if (emptyIdx !== -1) {
-      const next = [...programBuffer];
-      next[emptyIdx] = cmd;
-      setProgramBuffer(next);
+
+    if (cmd === 'LOOP2' || cmd === 'LOOP3') {
+      setLoopMode((prev) => (prev === cmd ? 'NONE' : cmd));
+      setInsertTarget('INSIDE');
+      return;
+    }
+
+    if (loopMode === 'NONE') {
+      setCmdBuffer((prev) => {
+        const idx = prev.slice(0, totalCells).indexOf(null);
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = cmd;
+        return next;
+      });
+      return;
+    }
+
+    // When a loop is active:
+    // In Easy ('normal'): outsideCells === 0, all 5 slots are inside the loop.
+    // In Hard ('hard'): outsideCells === 3, 4 slots are inside the loop and 3 slots are outside the loop.
+    if (outsideCells === 0 || insertTarget === 'INSIDE') {
+      const insideIdx = cmdBuffer.slice(0, loopBodyCells).indexOf(null);
+      if (insideIdx !== -1) {
+        setCmdBuffer((prev) => {
+          const idx = prev.slice(0, loopBodyCells).indexOf(null);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = cmd;
+          return next;
+        });
+        return;
+      }
+      // In Hard mode, if inside loop (4 slots) is full, overflow into outside loop (3 slots)
+      if (outsideCells > 0) {
+        const outIdx = outsideBuffer.indexOf(null);
+        if (outIdx !== -1) {
+          setOutsideBuffer((prev) => {
+            const idx = prev.indexOf(null);
+            if (idx === -1) return prev;
+            const nextOut = [...prev];
+            nextOut[idx] = cmd;
+            return nextOut;
+          });
+          setInsertTarget('OUTSIDE');
+        }
+      }
+    } else {
+      setOutsideBuffer((prev) => {
+        const idx = prev.indexOf(null);
+        if (idx === -1) return prev;
+        const nextOut = [...prev];
+        nextOut[idx] = cmd;
+        return nextOut;
+      });
     }
   };
 
   const clearSlot = (idx: number) => {
     if (isSimulating) return;
     sound.playTerminalClick();
-    const next = [...programBuffer];
-    next[idx] = null;
-    setProgramBuffer(next);
+    setCmdBuffer((prev) => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
+  };
+
+  const clearOutsideSlot = (idx: number) => {
+    if (isSimulating) return;
+    sound.playTerminalClick();
+    setOutsideBuffer((prev) => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
+  };
+
+  const moveInsideToOutside = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isSimulating || outsideCells === 0) return;
+    const cmd = cmdBuffer[idx];
+    if (!cmd) return;
+    const emptyOutIdx = outsideBuffer.indexOf(null);
+    if (emptyOutIdx === -1) return;
+    sound.playTerminalClick();
+    setCmdBuffer((prev) => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
+    setOutsideBuffer((prev) => {
+      const nextOut = [...prev];
+      nextOut[emptyOutIdx] = cmd;
+      return nextOut;
+    });
+  };
+
+  const moveOutsideToInside = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isSimulating || outsideCells === 0) return;
+    const cmd = outsideBuffer[idx];
+    if (!cmd) return;
+    const emptyInIdx = cmdBuffer.slice(0, loopBodyCells).indexOf(null);
+    if (emptyInIdx === -1) return;
+    sound.playTerminalClick();
+    setOutsideBuffer((prev) => {
+      const nextOut = [...prev];
+      nextOut[idx] = null;
+      return nextOut;
+    });
+    setCmdBuffer((prev) => {
+      const nextIn = [...prev];
+      nextIn[emptyInIdx] = cmd;
+      return nextIn;
+    });
   };
 
   const resetRover = () => {
@@ -307,31 +433,30 @@ export const Node3RoverNav: React.FC<Node3Props> = ({
     setSimMessage('Позиция ровера сброшена на старт [S].');
   };
 
+  const getExpandedCommands = (): string[] => {
+    if (loopMode === 'NONE') {
+      return cmdBuffer.slice(0, totalCells).filter(Boolean) as string[];
+    }
+    const insideCmds = cmdBuffer.slice(0, loopBodyCells).filter(Boolean) as string[];
+    const outsideCmds = outsideCells > 0 ? (outsideBuffer.filter(Boolean) as string[]) : [];
+    const repeatCount = loopMode === 'LOOP3' ? 3 : 2;
+    const expanded: string[] = [];
+    for (let k = 0; k < repeatCount; k++) {
+      expanded.push(...insideCmds);
+    }
+    expanded.push(...outsideCmds);
+    return expanded;
+  };
+
   // Run Simulation
   const runSimulation = () => {
     if (isSimulating) return;
     sound.playTaskOpen();
 
-    const activeCmds = programBuffer.filter(Boolean) as string[];
-    if (activeCmds.length === 0) {
+    const expandedQueue = getExpandedCommands();
+    if (expandedQueue.length === 0) {
       setSimMessage('Буфер пуст! Добавьте команды из палитры.');
       return;
-    }
-
-    let expandedQueue: string[] = [];
-    if (CMD_DICT[activeCmds[0]]?.isLoop) {
-      const count = CMD_DICT[activeCmds[0]].count || 2;
-      if (difficulty === 'hard') {
-        const loopBody = programBuffer.slice(1, 5).filter(Boolean) as string[];
-        const tailCmds = programBuffer.slice(5, 8).filter(Boolean) as string[];
-        for (let k = 0; k < count; k++) expandedQueue.push(...loopBody);
-        expandedQueue.push(...tailCmds);
-      } else {
-        const body = activeCmds.slice(1);
-        for (let k = 0; k < count; k++) expandedQueue.push(...body);
-      }
-    } else {
-      expandedQueue = [...activeCmds];
     }
 
     let atomicSteps: string[] = [];
@@ -553,89 +678,282 @@ export const Node3RoverNav: React.FC<Node3Props> = ({
             </div>
           </div>
 
-          {/* Programming Panel */}
+          {/* Programming Panel with Explicit Loop Container (6 total cells in Normal, 8 in Hard) */}
           <div className="md:col-span-5 flex flex-col justify-between">
             <div>
-              <div className="text-xs text-amber-300 font-bold mb-2 uppercase tracking-wider">
-                1. Палитра команд контроллера:
+              <div className="text-xs text-amber-300 font-bold mb-1.5 uppercase tracking-wider">
+                1. Палитра команд ровера:
               </div>
-              <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
                 <button
-                  onClick={() => addCmd('LOOP2')}
-                  className="p-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/60 text-emerald-300 text-xs rounded font-bold text-left transition"
+                  data-testid="loop-mode-2"
+                  onClick={() => handleSelectLoopMode('LOOP2')}
+                  className={`p-1.5 rounded text-xs font-bold border text-left transition cursor-pointer ${
+                    loopMode === 'LOOP2'
+                      ? 'bg-emerald-950/90 border-emerald-400 text-emerald-300 shadow shadow-emerald-500/20'
+                      : 'bg-emerald-950/25 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/40'
+                  }`}
                 >
-                  ⟳ ЦИКЛ ×2
+                  [×2] ЦИКЛ ×2 (0с)
                 </button>
                 <button
-                  onClick={() => addCmd('LOOP3')}
-                  className="p-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/60 text-emerald-300 text-xs rounded font-bold text-left transition"
+                  data-testid="loop-mode-3"
+                  onClick={() => handleSelectLoopMode('LOOP3')}
+                  className={`p-1.5 rounded text-xs font-bold border text-left transition cursor-pointer ${
+                    loopMode === 'LOOP3'
+                      ? 'bg-emerald-950/90 border-emerald-400 text-emerald-300 shadow shadow-emerald-500/20'
+                      : 'bg-emerald-950/25 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/40'
+                  }`}
                 >
-                  ⟳ ЦИКЛ ×3
+                  [×3] ЦИКЛ ×3 (0с)
                 </button>
                 <button
                   onClick={() => addCmd('FWD1')}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition"
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition cursor-pointer"
                 >
                   ↑ ВПЕРЕД 1 (1с)
                 </button>
                 <button
                   onClick={() => addCmd('FWD2')}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition"
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition cursor-pointer"
                 >
-                  ⇈ ВПЕРЕД 2 (2с)
+                  ↑↑ ВПЕРЕД 2 (2с)
                 </button>
                 <button
                   onClick={() => addCmd('RIGHT')}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition"
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition cursor-pointer"
                 >
-                  ↻ ВПРАВО 90° (1с)
+                  → ВПРАВО 90° (1с)
                 </button>
                 <button
                   onClick={() => addCmd('LEFT')}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition"
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs rounded font-bold text-left transition cursor-pointer"
                 >
-                  ↺ ВЛЕВО 90° (1с)
+                  ← ВЛЕВО 90° (1с)
                 </button>
                 <button
                   onClick={() => addCmd('Z_UP')}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-cyan-500/50 text-cyan-300 text-xs rounded font-bold text-left transition"
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-cyan-500/50 text-cyan-300 text-xs rounded font-bold text-left transition cursor-pointer"
                 >
                   ▲ ПОДЪЕМ Z (+1)
                 </button>
                 {difficulty === 'hard' && (
                   <button
                     onClick={() => addCmd('HYPER')}
-                    className="p-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-400 text-cyan-200 text-xs rounded font-bold text-left transition"
+                    className="p-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-400 text-cyan-200 text-xs rounded font-bold text-left transition cursor-pointer"
                   >
-                    🌀 4D-ПЕРЕХОД W
+                    ◆ 4D-ПЕРЕХОД W
                   </button>
                 )}
               </div>
 
-              <div className="text-xs text-amber-300 font-bold mb-2 uppercase tracking-wider">
-                2. Буфер памяти ({slotCount} слотов):
+              {/* Step 2: Program Buffer */}
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">
+                  2. Буфер программы ({totalCells} ячеек):
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {loopMode !== 'NONE' && outsideCells > 0 && (
+                    <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded border border-slate-800 text-[10px]">
+                      <button
+                        type="button"
+                        data-testid="insert-target-inside"
+                        onClick={() => setInsertTarget('INSIDE')}
+                        className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                          insertTarget === 'INSIDE'
+                            ? 'bg-emerald-500 text-black'
+                            : 'text-emerald-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        + В цикл
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="insert-target-outside"
+                        onClick={() => setInsertTarget('OUTSIDE')}
+                        className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
+                          insertTarget === 'OUTSIDE'
+                            ? 'bg-amber-400 text-black'
+                            : 'text-amber-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        + Вне цикла
+                      </button>
+                    </div>
+                  )}
+                  {loopMode !== 'NONE' && (
+                    <button
+                      type="button"
+                      data-testid="loop-mode-none"
+                      onClick={() => handleSelectLoopMode('NONE')}
+                      className="text-[10px] px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer"
+                    >
+                      × Убрать цикл
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto pr-1">
-                {programBuffer.map((cmd, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => clearSlot(idx)}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded text-xs border cursor-pointer transition ${
-                      cmd
-                        ? CMD_DICT[cmd]?.isLoop
-                          ? 'bg-emerald-950/40 border-emerald-500/80 text-emerald-300 font-bold'
-                          : CMD_DICT[cmd]?.isHyper
-                          ? 'bg-cyan-950/40 border-cyan-400 text-cyan-300 font-bold'
-                          : 'bg-slate-900 border-amber-500/50 text-amber-300 font-bold'
-                        : 'bg-black/40 border-dashed border-slate-700 text-slate-600'
-                    }`}
-                  >
-                    <span>
-                      #{idx + 1}: {cmd ? CMD_DICT[cmd]?.label : '[ ПУСТО ]'}
-                    </span>
-                    {cmd && <span className="text-slate-400 hover:text-white">✕</span>}
+
+              {/* Code Editor:
+                  - Easy ('normal'): 6 cells total (Шаг #1 Loop + Шаг #2..#6 Inside Loop, NO Outside-Loop section)
+                  - Hard ('hard'): 8 cells total (Шаг #1 Loop + Шаг #2..#5 Inside Loop + Шаг #6..#8 Outside Loop)
+              */}
+              <div className="space-y-2 mb-3 max-h-72 overflow-y-auto pr-1">
+                {loopMode !== 'NONE' ? (
+                  <>
+                    <div
+                      onClick={() => outsideCells > 0 && setInsertTarget('INSIDE')}
+                      data-testid="rover-loop-block"
+                      className={`border-l-4 pl-2.5 pr-2 py-2 rounded-r transition ${
+                        outsideCells === 0 || insertTarget === 'INSIDE'
+                          ? 'border-emerald-400 bg-emerald-950/20 ring-1 ring-emerald-500/40'
+                          : 'border-emerald-600/60 bg-emerald-950/10 opacity-90 cursor-pointer'
+                      }`}
+                    >
+                      {/* Cell #1: Loop Header */}
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectLoopMode('NONE');
+                        }}
+                        className="flex items-center justify-between px-2 py-1.5 mb-1.5 rounded bg-emerald-950/80 border border-emerald-400/70 text-xs font-bold text-emerald-300 cursor-pointer"
+                      >
+                        <span>
+                          Шаг #1: {CMD_DICT[loopMode]?.label} — ТЕЛО ЦИКЛА ({loopMode === 'LOOP3' ? '×3 раза' : '×2 раза'}) {'{'}
+                        </span>
+                        <span className="text-emerald-200 hover:text-white px-1">×</span>
+                      </div>
+
+                      {/* Cells #2..#(1 + loopBodyCells): Indented Loop Body */}
+                      <div className="space-y-1 pl-3 border-l-2 border-emerald-500/40 ml-1">
+                        {cmdBuffer.slice(0, loopBodyCells).map((cmd, idx) => (
+                          <div
+                            key={`loop-slot-${idx}`}
+                            data-testid={`rover-slot-${idx + 2}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (cmd) clearSlot(idx);
+                              else if (outsideCells > 0) setInsertTarget('INSIDE');
+                            }}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded text-xs border transition cursor-pointer ${
+                              cmd
+                                ? CMD_DICT[cmd]?.isHyper
+                                  ? 'bg-cyan-950/50 border-cyan-400 text-cyan-200 font-bold'
+                                  : 'bg-slate-900/95 border-emerald-500/50 text-emerald-200 font-bold'
+                                : 'bg-black/40 border-dashed border-emerald-800/60 text-slate-500'
+                            }`}
+                          >
+                            <span className="truncate">
+                              |→ Шаг #{idx + 2} (в цикле): {cmd ? CMD_DICT[cmd]?.label : '[ ПУСТО — ВНУТРИ ЦИКЛА ]'}
+                            </span>
+                            {cmd && (
+                              <span className="flex items-center gap-1.5 shrink-0 ml-1">
+                                {outsideCells > 0 && (
+                                  <button
+                                    type="button"
+                                    title="Переместить команду за пределы цикла (вне цикла)"
+                                    onClick={(e) => moveInsideToOutside(idx, e)}
+                                    className="px-1.5 py-0.5 text-[10px] rounded bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40"
+                                  >
+                                    ↓ Вне
+                                  </button>
+                                )}
+                                <span className="text-slate-400 hover:text-white px-1">×</span>
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="text-[11px] font-bold text-emerald-400/90 mt-1.5 pl-1">
+                        {'}'} // конец цикла — шаги #2..#{loopBodyCells + 1} повторяются {loopMode === 'LOOP3' ? '3 раза' : '2 раза'}
+                      </div>
+                    </div>
+
+                    {/* Hard Mode Exception: Outside-Loop Section (Steps #6..#8, 3 cells) */}
+                    {outsideCells > 0 && (
+                      <div
+                        onClick={() => setInsertTarget('OUTSIDE')}
+                        data-testid="rover-outside-block"
+                        className={`border-l-4 pl-2.5 pr-2 py-2 rounded-r transition cursor-pointer ${
+                          insertTarget === 'OUTSIDE'
+                            ? 'border-amber-400 bg-amber-950/20 ring-1 ring-amber-500/40'
+                            : 'border-slate-700 bg-slate-900/40 opacity-90'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-bold text-amber-300 mb-1.5">
+                          <span>↓ ВНЕ ЦИКЛА (шаги #{loopBodyCells + 2}..#{totalCells} — после цикла 1 раз):</span>
+                          {insertTarget === 'OUTSIDE' && (
+                            <span className="text-[9px] bg-amber-500/20 text-amber-200 px-1.5 py-0.5 rounded border border-amber-500/40">
+                              ввод сюда
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          {outsideBuffer.map((cmd, idx) => (
+                            <div
+                              key={`outside-slot-${idx}`}
+                              data-testid={`rover-slot-${loopBodyCells + 2 + idx}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (cmd) clearOutsideSlot(idx);
+                                else setInsertTarget('OUTSIDE');
+                              }}
+                              className={`flex items-center justify-between px-2.5 py-1.5 rounded text-xs border transition cursor-pointer ${
+                                cmd
+                                  ? CMD_DICT[cmd]?.isHyper
+                                    ? 'bg-cyan-950/50 border-cyan-400 text-cyan-200 font-bold'
+                                    : 'bg-slate-900 border-amber-500/50 text-amber-300 font-bold'
+                                  : 'bg-black/40 border-dashed border-slate-700 text-slate-500'
+                              }`}
+                            >
+                              <span className="truncate">
+                                Шаг #{loopBodyCells + 2 + idx} (вне цикла): {cmd ? CMD_DICT[cmd]?.label : '[ ПУСТО — ВНЕ ЦИКЛА ]'}
+                              </span>
+                              {cmd && (
+                                <span className="flex items-center gap-1.5 shrink-0 ml-1">
+                                  <button
+                                    type="button"
+                                    title="Поместить команду внутрь цикла"
+                                    onClick={(e) => moveOutsideToInside(idx, e)}
+                                    className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40"
+                                  >
+                                    ↑ В цикл
+                                  </button>
+                                  <span className="text-slate-400 hover:text-white px-1">×</span>
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Linear mode (no loop selected): all totalCells (6 in normal, 8 in hard) */
+                  <div className="space-y-1.5" data-testid="rover-linear-block">
+                    {cmdBuffer.slice(0, totalCells).map((cmd, idx) => (
+                      <div
+                        key={`linear-slot-${idx}`}
+                        data-testid={`rover-slot-${idx + 1}`}
+                        onClick={() => clearSlot(idx)}
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded text-xs border cursor-pointer transition ${
+                          cmd
+                            ? CMD_DICT[cmd]?.isHyper
+                              ? 'bg-cyan-950/40 border-cyan-400 text-cyan-300 font-bold'
+                              : 'bg-slate-900 border-amber-500/50 text-amber-300 font-bold'
+                            : 'bg-black/40 border-dashed border-slate-700 text-slate-600'
+                        }`}
+                      >
+                        <span>
+                          Шаг #{idx + 1}: {cmd ? CMD_DICT[cmd]?.label : '[ ПУСТО ]'}
+                        </span>
+                        {cmd && <span className="text-slate-400 hover:text-white">×</span>}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
@@ -644,7 +962,7 @@ export const Node3RoverNav: React.FC<Node3Props> = ({
               <button
                 disabled={isSimulating}
                 onClick={runSimulation}
-                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase rounded flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition"
+                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase rounded flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-black" />
                 <span>ЗАПУСК РОВЕРА</span>
@@ -652,7 +970,7 @@ export const Node3RoverNav: React.FC<Node3Props> = ({
               <button
                 disabled={isSimulating}
                 onClick={resetRover}
-                className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded font-bold flex items-center gap-1 transition"
+                className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded font-bold flex items-center gap-1 transition cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>СБРОС</span>

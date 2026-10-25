@@ -41,6 +41,143 @@ export function evaluateNode1SliderCommit(
 }
 
 /**
+ * Returns true ONLY when all three Node 1 sliders are currently at the exact correct values
+ * and committed (not being dragged away to a different value).
+ * If the user moves any slider after solving, this immediately returns false.
+ */
+export function isNode1AllCorrect(
+  draftParams: Node1Params,
+  committedParams: Node1Params,
+  isDragging: boolean,
+  difficulty: Difficulty
+): boolean {
+  if (isDragging) {
+    return false;
+  }
+  if (
+    draftParams.u !== committedParams.u ||
+    draftParams.f !== committedParams.f ||
+    draftParams.i !== committedParams.i
+  ) {
+    return false;
+  }
+  return checkNode1(committedParams, difficulty);
+}
+
+export const NODE1_TASK3_MAX_ATTEMPTS = 3;
+export const NODE1_TASK3_STEP = 1;
+export const NODE1_TASK3_MIN = 1;
+export const NODE1_TASK3_MAX = 300;
+
+/**
+ * Evaluates a commit on Node 1 with anti-bruteforce protection on Task 3 (`i`).
+ * Because Task 3 uses `step = 1` (1..300) AND limits wrong changes of Task 3 to 3 attempts
+ * before tripping the BTCU protection relay (resetting values + temporary lockout),
+ * brute-forcing Task 3 by stepping through values is impossible.
+ */
+export function evaluateNode1Task3Attempt(
+  prevCommitted: Node1Params,
+  nextDraft: Node1Params,
+  difficulty: Difficulty,
+  currentAttemptsLeft: number
+): {
+  solved: boolean;
+  nextCommitted: Node1Params;
+  attemptsLeft: number;
+  trippedProtection: boolean;
+} {
+  const solved = checkNode1(nextDraft, difficulty);
+  if (solved) {
+    return {
+      solved: true,
+      nextCommitted: { ...nextDraft },
+      attemptsLeft: NODE1_TASK3_MAX_ATTEMPTS,
+      trippedProtection: false,
+    };
+  }
+
+  const expected = getExpectedNode1Params(difficulty);
+  const task3Changed = nextDraft.i !== prevCommitted.i;
+  const task3Wrong = nextDraft.i !== expected.i;
+
+  if (task3Changed && task3Wrong) {
+    const nextAttempts = currentAttemptsLeft - 1;
+    if (nextAttempts <= 0) {
+      return {
+        solved: false,
+        nextCommitted: { u: 50, f: 100, i: 40 },
+        attemptsLeft: NODE1_TASK3_MAX_ATTEMPTS,
+        trippedProtection: true,
+      };
+    }
+    return {
+      solved: false,
+      nextCommitted: { ...nextDraft },
+      attemptsLeft: nextAttempts,
+      trippedProtection: false,
+    };
+  }
+
+  return {
+    solved: false,
+    nextCommitted: { ...nextDraft },
+    attemptsLeft: currentAttemptsLeft,
+    trippedProtection: false,
+  };
+}
+
+export type RoverLoopMode = 'NONE' | 'LOOP2' | 'LOOP3';
+
+/**
+ * Returns the exact cell budget for Node 3 Rover Navigation:
+ * - Easy ('normal'): 6 cells total (1 loop cell + 5 cells inside the loop, 0 outside)
+ * - Hard ('hard'): 8 cells total (1 loop cell + 4 cells inside the loop + 3 cells outside the loop)
+ */
+export function getRoverSlotBudget(difficulty: Difficulty): {
+  totalCells: number;
+  loopBodyCells: number;
+  outsideCells: number;
+} {
+  if (difficulty === 'hard') {
+    return {
+      totalCells: 8,
+      loopBodyCells: 4,
+      outsideCells: 3,
+    };
+  }
+  return {
+    totalCells: 6,
+    loopBodyCells: 5,
+    outsideCells: 0,
+  };
+}
+
+/**
+ * Expands a Rover program where all commands inside the loop block repeat 2x or 3x
+ * when a loop mode ('LOOP2' or 'LOOP3') is active.
+ */
+export function expandRoverStructuredProgram(
+  loopMode: RoverLoopMode,
+  loopCmds: (string | null)[],
+  outsideCmds: (string | null)[] = []
+): string[] {
+  const cleanInside = loopCmds.filter(Boolean) as string[];
+  const cleanOutside = outsideCmds.filter(Boolean) as string[];
+
+  if (loopMode === 'NONE') {
+    return [...cleanInside, ...cleanOutside];
+  }
+
+  const repeatCount = loopMode === 'LOOP3' ? 3 : 2;
+  const expanded: string[] = [];
+  for (let i = 0; i < repeatCount; i++) {
+    expanded.push(...cleanInside);
+  }
+  expanded.push(...cleanOutside);
+  return expanded;
+}
+
+/**
  * Computes the 4-directional astronaut orientation ('up', 'down', 'left', 'right')
  * from a 2D movement vector (dx, dy).
  */

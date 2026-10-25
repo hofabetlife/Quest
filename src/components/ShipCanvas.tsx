@@ -28,6 +28,7 @@ interface Sortable25DItem {
 }
 
 interface ShipCanvasProps {
+  resetKey?: number;
   suitColor: SuitColor;
   tasks: TaskState;
   unlockedDoors: UnlockedDoorsState;
@@ -112,6 +113,7 @@ const STARS = Array.from({ length: 2200 }, (_, i) => {
 });
 
 export const ShipCanvas: React.FC<ShipCanvasProps> = ({
+  resetKey = 0,
   suitColor,
   tasks,
   unlockedDoors,
@@ -210,6 +212,41 @@ export const ShipCanvas: React.FC<ShipCanvasProps> = ({
     backgroundLabels: [],
     foregroundLabels: [],
   });
+
+  useEffect(() => {
+    playerRef.current = {
+      x: PLAYER_SPAWN.x,
+      y: PLAYER_SPAWN.y,
+      vx: 0,
+      vy: 0,
+      facing: 1,
+      facingDir: 'right',
+      aimAngle: 0,
+      walkCycle: 0,
+      path: [],
+      targetTerminal: null,
+      targetDoor: null,
+    };
+    cameraRef.current = {
+      x: PLAYER_SPAWN.x,
+      y: PLAYER_SPAWN.y,
+      zoom: 1.38,
+    };
+    doorLiftProgressRef.current = {
+      1: unlockedDoorsRef.current[1] ? 1 : 0,
+      2: unlockedDoorsRef.current[2] ? 1 : 0,
+      3: unlockedDoorsRef.current[3] ? 1 : 0,
+      4: unlockedDoorsRef.current[4] ? 1 : 0,
+      5: unlockedDoorsRef.current[5] ? 1 : 0,
+    };
+    footprintsRef.current = [];
+    lastFootprintPosRef.current = { x: PLAYER_SPAWN.x, y: PLAYER_SPAWN.y };
+    clickEffectsRef.current = [];
+    nearbyTerminalRef.current = null;
+    setNearbyTerminal(null);
+    nearbyDoorRef.current = null;
+    setNearbyDoor(null);
+  }, [resetKey]);
 
   const isTaskSolved = (idx: number): boolean => {
     if (idx === 1) return tasks.node1Solved;

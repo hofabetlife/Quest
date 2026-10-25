@@ -40,6 +40,7 @@ export default function App() {
   const [showDifficultyModal, setShowDifficultyModal] = useState<boolean>(false);
   const [completedBanner, setCompletedBanner] = useState<CompletedBannerInfo | null>(null);
   const [tasksCollapsed, setTasksCollapsed] = useState<boolean>(false);
+  const [sessionKey, setSessionKey] = useState<number>(0);
 
   const [tasks, setTasks] = useState<TaskState>({
     node1Solved: false,
@@ -72,6 +73,13 @@ export default function App() {
         setUnlockedDoors((prev) => ({ ...prev, [idx as DoorId]: true }));
       }
     }
+    const taskParam = params.get('task');
+    if (taskParam) {
+      const num = parseInt(taskParam.replace('node', ''), 10);
+      if (num >= 1 && num <= 6) {
+        setActiveTask(num as ActiveTask);
+      }
+    }
   }, []);
 
   const triggerTaskCompletedBanner = (title: string, subtitle: string) => {
@@ -100,8 +108,12 @@ export default function App() {
     sound.ensureStarted();
     setDifficulty(mode);
     setShowDifficultyModal(false);
+    setActiveTask(null);
     setActiveDoor(null);
-    setUnlockedDoors(INITIAL_DOORS_STATE);
+    setCompletedBanner(null);
+    setCurrentRoomName('КОМАНДНЫЙ ЦЕНТР // СЕРВЕРНОЕ ЯДРО');
+    setUnlockedDoors({ ...INITIAL_DOORS_STATE });
+    setSessionKey((prev) => prev + 1);
     setTasks({
       node1Solved: false,
       node1Params: mode === 'normal' ? { u: 100, f: 200, i: 65 } : { u: 75, f: 150, i: 105 },
@@ -121,8 +133,6 @@ export default function App() {
   const handleResetQuest = () => {
     sound.playTerminalClick();
     handleSelectDifficulty(difficulty);
-    setActiveTask(null);
-    setActiveDoor(null);
   };
 
   const handleUnlockDoor = (doorId: DoorId) => {
@@ -282,6 +292,8 @@ export default function App() {
         )}
 
         <ShipCanvas
+          key={sessionKey}
+          resetKey={sessionKey}
           tasks={tasks}
           unlockedDoors={unlockedDoors}
           suitColor={suitColor}
@@ -320,6 +332,13 @@ export default function App() {
               'Узел I: Электросистема Boeing 737 синхронизирована',
               `Даниил, параметры записаны в бортовой журнал`
             );
+          }}
+          onUnsolve={(params) => {
+            setTasks((prev) => ({
+              ...prev,
+              node1Solved: false,
+              node1Params: params,
+            }));
           }}
           onClose={() => setActiveTask(null)}
         />

@@ -12,7 +12,24 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if (window.location.protocol === 'file:') {
+        document.getElementById('root').innerHTML =
+          '<div style="min-height:100vh;background:#030509;color:#e2e8f0;font-family:monospace;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;">' +
+          '<div style="max-width:680px;background:#0f172a;border:1px solid #38bdf8;border-radius:12px;padding:28px;line-height:1.6;box-shadow:0 20px 50px rgba(0,0,0,0.8);">' +
+          '<h2 style="margin:0 0 12px;color:#38bdf8;font-size:20px;">⚠️ Проект открыт напрямую через file:// без сборки</h2>' +
+          '<p style="margin:0 0 14px;color:#cbd5e1;font-size:14px;">Браузеры блокируют загрузку ES-модулей по протоколу <code>file://</code> (CORS policy) и не умеют напрямую выполнять исходный код <code>TypeScript / React (.tsx)</code> без сборщика <b>Vite</b>.</p>' +
+          '<div style="background:#020617;border:1px solid #334155;border-radius:8px;padding:14px;margin-bottom:14px;font-size:13px;color:#34d399;">' +
+          '<div style="color:#94a3b8;margin-bottom:6px;">// Запустите в терминале в папке проекта:</div>' +
+          '<div>1. npm install</div>' +
+          '<div>2. npm run dev</div>' +
+          '<div style="color:#38bdf8;margin-top:6px;">→ После этого откройте http://localhost:3000</div>' +
+          '</div>' +
+          '<p style="margin:0;color:#94a3b8;font-size:12px;">Для публикации на хостинге (GitHub Pages / Vercel / Netlify) используйте команду сборки <code>npm run build</code> и публикуйте готовую папку <code>dist/</code>.</p>' +
+          '</div></div>';
+      }
+    </script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
 
